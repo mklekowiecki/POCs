@@ -27,9 +27,14 @@ public partial class MainPage : ContentPage
 		var response = await _httpClient.PostAsync("http://localhost:5116/GoogleTTS/stream", request);
 		response.EnsureSuccessStatusCode();
 		using var audioStream = await response.Content.ReadAsStreamAsync();
-		_audioPlayer.Stop();
-		_audioPlayer.Dispose();
-		var player = AudioManager.Current.CreatePlayer(audioStream);
+
+		try
+		{
+			_audioPlayer.Stop();
+			_audioPlayer.Dispose();
+		}
+		catch { }
+        var player = AudioManager.Current.CreatePlayer(audioStream);
 		player.Play();
 	}
 }

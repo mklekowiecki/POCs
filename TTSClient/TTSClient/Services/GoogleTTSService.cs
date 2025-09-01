@@ -28,7 +28,7 @@ namespace TTSClient.Services
             }
 
             var input = new SynthesisInput { Text = text };
-            var voice = new VoiceSelectionParams { LanguageCode = "en-US", SsmlGender = SsmlVoiceGender.Female };
+            var voice = new VoiceSelectionParams { LanguageCode = "pl", SsmlGender = SsmlVoiceGender.Female };
             var audioConfig = new AudioConfig { AudioEncoding = AudioEncoding.Linear16 };
 
             var response = await _client.SynthesizeSpeechAsync(input, voice, audioConfig);
