@@ -1,0 +1,2 @@
+# Silnik 3D aplikacji. Instalacja:  pip install -r requirements.txt
+ursina>=6.0.0

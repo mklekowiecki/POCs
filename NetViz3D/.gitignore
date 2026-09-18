@@ -1,0 +1,10 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# Opcjonalna czcionka wgrana lokalnie przez nauczyciela
+assets/fonts/*.ttf

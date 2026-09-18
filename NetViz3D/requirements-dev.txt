@@ -1,0 +1,3 @@
+# Dodatki potrzebne tylko do uruchomienia testów (testy nie potrzebują okna).
+-r requirements.txt
+pytest>=7.0
