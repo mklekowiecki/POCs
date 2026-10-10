@@ -19,6 +19,8 @@ Serwer nasłuchuje na `http://0.0.0.0:5000` (wszystkie interfejsy, port 5000).
 | Kto        | Adres                                   |
 |------------|-----------------------------------------|
 | Uczniowie  | `http://<IP-komputera-nauczyciela>:5000/` |
+
+Strona ucznia jest podpisana „Lekcja Informatyki” (nagłówek i tytuł karty w `wwwroot/index.html`).
 | Nauczyciel | `http://localhost:5000/teacher.html`    |
 
 Hasło nauczyciela ustawia się w `TeacherHelp/appsettings.json` → `TeacherHelp:TeacherPassword`
