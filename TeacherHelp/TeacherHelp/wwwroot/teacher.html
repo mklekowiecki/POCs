@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lekcja Informatyki – nauczyciel</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Lekcja Informatyki – panel nauczyciela</h1>
+    <span id="status" class="status"></span>
+    <button id="logout" class="secondary hidden" type="button">Wyloguj</button>
+  </header>
+  <main>
+    <section id="login" class="center hidden">
+      <div class="card" style="display:inline-block">
+        <h2>Hasło nauczyciela</h2>
+        <form id="login-form" class="inline">
+          <input id="password" type="password" required autofocus>
+          <button type="submit">Zaloguj</button>
+        </form>
+        <div id="login-error" class="error"></div>
+      </div>
+    </section>
+
+    <section id="idle" class="center hidden">
+      <div class="card" style="display:inline-block">
+        <h2>Nowa sesja</h2>
+        <form id="start-form" class="inline">
+          <label for="task-count">Liczba zadań</label>
+          <input id="task-count" type="number" min="1" max="200" value="5" required style="width:6em">
+          <button type="submit">Rozpocznij</button>
+        </form>
+        <div id="start-error" class="error"></div>
+      </div>
+    </section>
+
+    <section id="session" class="hidden">
+      <div class="toolbar">
+        <form id="add-form" class="inline">
+          <input id="add-title" maxlength="100" placeholder="Tytuł nowego zadania (opcjonalnie)">
+          <button type="submit">Dodaj zadanie</button>
+        </form>
+        <span class="spacer"></span>
+        <span id="summary" class="muted"></span>
+        <button id="export" type="button" class="secondary">Eksport CSV</button>
+        <button id="end" type="button" class="danger">Zakończ sesję</button>
+      </div>
+      <details id="files-panel" class="files-panel">
+        <summary>Pliki dla uczniów (<span id="files-count">0</span>)</summary>
+        <form id="upload-form" class="inline upload">
+          <input id="upload-input" type="file" multiple required>
+          <label for="upload-task">do</label>
+          <select id="upload-task"></select>
+          <button type="submit">Udostępnij</button>
+        </form>
+        <div id="upload-error" class="error"></div>
+        <ul id="files-list" class="files teacher-files"></ul>
+      </details>
+      <div id="stats" class="stats"></div>
+      <div class="table-wrap">
+        <table>
+          <thead id="thead"></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <p class="muted">Kliknij nagłówek zadania, aby zmienić tytuł. Procent liczony od zalogowanych uczniów.</p>
+    </section>
+  </main>
+  <script src="lib/signalr.min.js"></script>
+  <script src="teacher.js"></script>
+</body>
+</html>
