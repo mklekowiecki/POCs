@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Teacher Help – uczeń</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Teacher Help</h1>
+    <span id="who" class="muted"></span>
+    <span id="status" class="status">Łączenie…</span>
+  </header>
+  <main>
+    <section id="waiting" class="center hidden">
+      <h2>Poczekaj, aż nauczyciel rozpocznie lekcję</h2>
+      <p class="muted">Strona przełączy się sama.</p>
+    </section>
+
+    <section id="login" class="center hidden">
+      <div class="card" style="display:inline-block">
+        <h2>Podaj swoje imię lub login</h2>
+        <form id="login-form" class="inline">
+          <input id="login-input" maxlength="40" autocomplete="off" required autofocus>
+          <button type="submit">Dołącz</button>
+        </form>
+        <div id="login-error" class="error"></div>
+      </div>
+    </section>
+
+    <section id="tasks" class="hidden">
+      <p class="muted">Kliknij kafelek, gdy zrobisz zadanie. Kliknij ponownie, aby cofnąć.</p>
+      <div id="tiles" class="tiles"></div>
+    </section>
+  </main>
+  <script src="lib/signalr.min.js"></script>
+  <script src="student.js"></script>
+</body>
+</html>
