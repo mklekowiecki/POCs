@@ -8,7 +8,13 @@ using Microsoft.AspNetCore.Http.Features;
 using TeacherHelp.Hubs;
 using TeacherHelp.Session;
 
-var builder = WebApplication.CreateBuilder(args);
+// Content root = katalog exe: wwwroot i appsettings.json są znajdowane niezależnie od katalogu,
+// z którego uruchomiono program (dwuklik, skrót, Harmonogram zadań).
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    ContentRootPath = AppContext.BaseDirectory,
+});
 
 const long maxUploadBytes = 200L * 1024 * 1024;
 

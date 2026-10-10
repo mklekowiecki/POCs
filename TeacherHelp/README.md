@@ -27,7 +27,27 @@ Hasło nauczyciela ustawia się w `TeacherHelp/appsettings.json` → `TeacherHel
 (domyślnie `zmien-to-haslo` – **zmień je**). Można je też podać bez edycji pliku:
 `dotnet run -- --TeacherHelp:TeacherPassword=moje-haslo`.
 
-Na Windowsie trzeba zezwolić w zaporze na połączenia przychodzące na port 5000.
+### Uruchamianie bez `dotnet run`
+
+Exe można odpalić prosto z wyniku buildu lub publish – strony (`wwwroot`) i `appsettings.json`
+są kopiowane obok exe i szukane w jego katalogu, niezależnie od tego, skąd program uruchomiono:
+
+```bash
+dotnet build -c Release      # → TeacherHelp/bin/Release/net10.0/TeacherHelp.exe
+dotnet publish -c Release -o C:\TeacherHelp   # cały katalog do skopiowania na komputer nauczyciela
+```
+
+Hasło zmienia się wtedy w `appsettings.json` leżącym obok exe.
+
+### Zapora sieciowa
+
+Na komputerze nauczyciela trzeba zezwolić na połączenia przychodzące na port 5000 – inaczej strona
+działa pod `localhost`, ale uczniowie jej nie widzą. Najprościej przy pierwszym uruchomieniu kliknąć
+„Zezwalaj” w oknie Zapory Windows, albo (PowerShell jako administrator):
+
+```powershell
+New-NetFirewallRule -DisplayName "Teacher Help" -Direction Inbound -Protocol TCP -LocalPort 5000 -Action Allow -Profile Private,Domain
+```
 
 Testy: `dotnet test` w katalogu `TeacherHelp/`.
 
