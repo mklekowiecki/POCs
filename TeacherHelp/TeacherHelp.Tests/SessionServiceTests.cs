@@ -153,4 +153,52 @@ public class SessionServiceTests
         Assert.Equal("'=HYPERLINK();x;", lines[1]);
         Assert.Equal("Procent;100%;0%", lines[2]);
     }
+
+    [Fact]
+    public void Files_are_split_into_general_and_per_task_for_students()
+    {
+        var s = new SessionService();
+        s.Start(2);
+        var token = s.Join("Ala").Token;
+
+        Assert.NotNull(s.AddFile("g", "plan.pdf", 10, null));
+        Assert.NotNull(s.AddFile("t2", "dane.csv", 20, 2));
+        Assert.Null(s.AddFile("t3", "x.txt", 1, 3));
+
+        var view = s.GetStudentView(token);
+        Assert.Equal(["plan.pdf"], view.Files.Select(f => f.Name));
+        Assert.Empty(view.Tasks[0].Files);
+        Assert.Equal(["dane.csv"], view.Tasks[1].Files.Select(f => f.Name));
+        Assert.Equal(2, s.GetDashboard().Files.Count);
+    }
+
+    [Fact]
+    public void File_name_is_stripped_of_path_and_control_chars()
+    {
+        var s = new SessionService();
+        s.Start(1);
+        Assert.Equal("zad1.py", s.AddFile("a", @"C:\Users\nauczyciel\zad1.py", 1, null)!.Name);
+        Assert.Equal("a.txt", s.AddFile("b", "../../a\u0007.txt", 1, null)!.Name);
+        Assert.Equal("plik", s.AddFile("c", "  ", 1, null)!.Name);
+    }
+
+    [Fact]
+    public void Files_can_be_removed_and_disappear_when_session_ends()
+    {
+        var s = new SessionService();
+        Assert.Null(s.AddFile("a", "x", 1, null));
+        s.Start(1);
+        s.AddFile("a", "a.txt", 1, null);
+        s.AddFile("b", "b.txt", 1, 1);
+
+        Assert.True(s.RemoveFile("a"));
+        Assert.False(s.RemoveFile("a"));
+        Assert.Null(s.GetFile("a"));
+        Assert.NotNull(s.GetFile("b"));
+
+        s.End();
+        Assert.Null(s.GetFile("b"));
+        s.Start(1);
+        Assert.Empty(s.GetDashboard().Files);
+    }
 }

@@ -47,6 +47,17 @@
         <button id="export" type="button" class="secondary">Eksport CSV</button>
         <button id="end" type="button" class="danger">Zakończ sesję</button>
       </div>
+      <details id="files-panel" class="files-panel">
+        <summary>Pliki dla uczniów (<span id="files-count">0</span>)</summary>
+        <form id="upload-form" class="inline upload">
+          <input id="upload-input" type="file" multiple required>
+          <label for="upload-task">do</label>
+          <select id="upload-task"></select>
+          <button type="submit">Udostępnij</button>
+        </form>
+        <div id="upload-error" class="error"></div>
+        <ul id="files-list" class="files teacher-files"></ul>
+      </details>
       <div id="stats" class="stats"></div>
       <div class="table-wrap">
         <table>

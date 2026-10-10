@@ -4,12 +4,17 @@ using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Http.Features;
 using TeacherHelp.Hubs;
 using TeacherHelp.Session;
 
 var builder = WebApplication.CreateBuilder(args);
 
+const long maxUploadBytes = 200L * 1024 * 1024;
+
 builder.Services.AddSingleton<SessionService>();
+builder.Services.AddSingleton(new FileStorage(Path.Combine(Path.GetTempPath(), "TeacherHelp", "files")));
+builder.Services.Configure<FormOptions>(o => o.MultipartBodyLengthLimit = maxUploadBytes);
 builder.Services.AddHostedService<SessionNotifier>();
 builder.Services.AddSignalR()
     .AddJsonProtocol(o => o.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
@@ -68,8 +73,12 @@ secured.MapPost("/session/start", (StartRequest req, SessionService session) =>
     return session.Start(req.TaskCount) ? Results.NoContent() : Results.Conflict("Sesja już trwa.");
 });
 
-secured.MapPost("/session/end", (SessionService session) =>
-    session.End() ? Results.NoContent() : Results.Conflict("Brak aktywnej sesji."));
+secured.MapPost("/session/end", (SessionService session, FileStorage storage) =>
+{
+    if (!session.End()) return Results.Conflict("Brak aktywnej sesji.");
+    storage.Clear();
+    return Results.NoContent();
+});
 
 secured.MapPost("/tasks", (TaskRequest req, SessionService session) =>
     session.AddTask(req.Title) is { } task ? Results.Ok(task) : Results.Conflict("Brak aktywnej sesji lub limit zadań."));
@@ -80,11 +89,50 @@ secured.MapPut("/tasks/{number:int}", (int number, TaskRequest req, SessionServi
 secured.MapDelete("/students/{id}", (string id, SessionService session) =>
     session.RemoveStudent(id) ? Results.NoContent() : Results.NotFound());
 
+// Formularz czytamy ręcznie (bez bindowania IFormFile), żeby nie wymagać tokenów antiforgery.
+secured.MapPost("/files", async (HttpRequest request, SessionService session, FileStorage storage, CancellationToken ct) =>
+{
+    if (!request.HasFormContentType) return Results.BadRequest("Oczekiwano formularza z plikami.");
+    if (request.HttpContext.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
+        limit.MaxRequestBodySize = maxUploadBytes; // domyślnie Kestrel przyjmuje ~30 MB
+    var form = await request.ReadFormAsync(ct);
+    int? taskNumber = int.TryParse(form["task"], out var n) ? n : null;
+    if (form.Files.Count == 0) return Results.BadRequest("Nie wybrano pliku.");
+
+    var added = new List<SharedFile>();
+    foreach (var upload in form.Files)
+    {
+        var id = Guid.NewGuid().ToString("N");
+        await using (var content = upload.OpenReadStream())
+            await storage.SaveAsync(id, content, ct);
+        if (session.AddFile(id, upload.FileName, upload.Length, taskNumber) is { } file) added.Add(file);
+        else
+        {
+            storage.Delete(id);
+            return Results.Conflict("Brak aktywnej sesji lub nie ma takiego zadania.");
+        }
+    }
+    return Results.Ok(added);
+});
+
+secured.MapDelete("/files/{id}", (string id, SessionService session, FileStorage storage) =>
+{
+    if (!session.RemoveFile(id)) return Results.NotFound();
+    storage.Delete(id);
+    return Results.NoContent();
+});
+
 secured.MapGet("/export.csv", (SessionService session) =>
 {
     var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(session.ExportCsv())).ToArray();
     return Results.File(bytes, "text/csv; charset=utf-8", $"teacher-help-{DateTime.Now:yyyy-MM-dd-HHmm}.csv");
 });
+
+// Pobieranie plików przez uczniów: dostępne, dopóki trwa sesja. Zawsze jako załącznik (nie otwieramy HTML w przeglądarce).
+app.MapGet("/api/files/{id}", (string id, SessionService session, FileStorage storage) =>
+    session.GetFile(id) is { } file && storage.OpenRead(file.Id) is { } stream
+        ? Results.File(stream, "application/octet-stream", file.Name)
+        : Results.NotFound());
 
 app.Run();
 

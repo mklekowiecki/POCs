@@ -9,6 +9,18 @@ function storageSet(key, value) {
 }
 
 const $ = id => document.getElementById(id);
+
+function fileLinks(files) {
+  return files.map(f => {
+    const a = document.createElement("a");
+    a.href = `api/files/${encodeURIComponent(f.id)}`;
+    a.download = f.name;
+    a.textContent = `📄 ${f.name}`;
+    const li = document.createElement("li");
+    li.append(a);
+    return li;
+  });
+}
 const connection = new signalR.HubConnectionBuilder()
   .withUrl("hubs/student")
   .withAutomaticReconnect({ nextRetryDelayInMilliseconds: () => 2000 })
@@ -39,6 +51,8 @@ function render(view, sentToken) {
     return;
   }
   $("who").textContent = view.login;
+  $("materials").classList.toggle("hidden", view.files.length === 0);
+  $("materials-list").replaceChildren(...fileLinks(view.files));
   const tiles = $("tiles");
   tiles.replaceChildren(...view.tasks.map(t => {
     const btn = document.createElement("button");
@@ -56,7 +70,16 @@ function render(view, sentToken) {
       btn.append(title);
     }
     btn.addEventListener("click", () => toggle(t.number, btn));
-    return btn;
+    const card = document.createElement("div");
+    card.className = "tile-card";
+    card.append(btn);
+    if (t.files.length) {
+      const list = document.createElement("ul");
+      list.className = "files";
+      list.append(...fileLinks(t.files));
+      card.append(list);
+    }
+    return card;
   }));
   show("tasks");
 }

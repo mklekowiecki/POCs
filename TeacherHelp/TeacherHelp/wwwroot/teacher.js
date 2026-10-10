@@ -39,6 +39,39 @@ function taskLabel(t) {
   return t.title ? `${t.number}. ${t.title}` : `Zadanie ${t.number}`;
 }
 
+function formatSize(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function renderFiles(d) {
+  $("files-count").textContent = d.files.length;
+
+  const select = $("upload-task");
+  const selected = select.value;
+  select.replaceChildren(
+    el("option", { value: "", textContent: "materiały ogólne" }),
+    ...d.tasks.map(t => el("option", { value: String(t.number), textContent: taskLabel(t) })));
+  if ([...select.options].some(o => o.value === selected)) select.value = selected;
+
+  const tasksByNumber = new Map(d.tasks.map(t => [t.number, t]));
+  $("files-list").replaceChildren(...d.files.map(f => {
+    const remove = el("button", { type: "button", className: "danger", textContent: "Usuń" });
+    remove.addEventListener("click", () => removeFile(f));
+    const target = f.taskNumber == null ? "materiały ogólne" : taskLabel(tasksByNumber.get(f.taskNumber));
+    return el("li", {},
+      el("a", { href: `api/files/${encodeURIComponent(f.id)}`, download: f.name, textContent: f.name }),
+      el("span", { className: "muted", textContent: ` ${formatSize(f.size)} · ${target} ` }),
+      remove);
+  }));
+}
+
+async function removeFile(f) {
+  if (!confirm(`Usunąć plik „${f.name}”?`)) return;
+  try { await api("DELETE", `api/teacher/files/${encodeURIComponent(f.id)}`); } catch (e) { alert(e.message); }
+}
+
 function render(d) {
   if (d.version < lastVersion) return; // spóźniona wiadomość
   lastVersion = d.version;
@@ -48,6 +81,8 @@ function render(d) {
     return;
   }
   show("session");
+
+  renderFiles(d);
 
   const n = d.students.length;
   $("summary").textContent = `Uczniów: ${n}`;
@@ -164,6 +199,30 @@ $("add-form").addEventListener("submit", async ev => {
     $("add-title").value = "";
   } catch (e) {
     alert(e.message);
+  }
+});
+
+$("upload-form").addEventListener("submit", async ev => {
+  ev.preventDefault();
+  $("upload-error").textContent = "";
+  const input = $("upload-input");
+  const form = new FormData();
+  for (const file of input.files) form.append("files", file);
+  form.append("task", $("upload-task").value);
+  const button = ev.submitter;
+  button.disabled = true;
+  button.textContent = "Wysyłanie…";
+  try {
+    const res = await fetch("api/teacher/files", { method: "POST", body: form });
+    if (res.status === 401) { await stopConnection(); show("login"); return; }
+    if (res.status === 413) throw new Error("Plik jest za duży (limit 200 MB).");
+    if (!res.ok) throw new Error((await res.text()) || res.statusText);
+    input.value = "";
+  } catch (e) {
+    $("upload-error").textContent = e.message;
+  } finally {
+    button.disabled = false;
+    button.textContent = "Udostępnij";
   }
 });
 

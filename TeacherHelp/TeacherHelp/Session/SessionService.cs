@@ -4,10 +4,17 @@ namespace TeacherHelp.Session;
 
 public sealed record TaskItem(int Number, string? Title);
 
-public sealed record StudentTaskView(int Number, string? Title, bool Done);
+/// <summary>Plik udostępniony przez nauczyciela. TaskNumber == null oznacza materiał ogólny dla całej lekcji.</summary>
+public sealed record SharedFile(string Id, string Name, long Size, int? TaskNumber);
+
+public sealed record StudentTaskView(int Number, string? Title, bool Done, IReadOnlyList<SharedFile> Files);
 
 /// <summary>Co widzi uczeń. State: "waiting" (brak sesji), "login" (sesja trwa, uczeń niezalogowany), "active".</summary>
-public sealed record StudentView(string State, string? Login, IReadOnlyList<StudentTaskView> Tasks);
+public sealed record StudentView(
+    string State,
+    string? Login,
+    IReadOnlyList<StudentTaskView> Tasks,
+    IReadOnlyList<SharedFile> Files);
 
 public sealed record StudentRow(string Id, string Login, IReadOnlyList<int> Done);
 
@@ -18,7 +25,8 @@ public sealed record Dashboard(
     bool Active,
     IReadOnlyList<TaskItem> Tasks,
     IReadOnlyList<StudentRow> Students,
-    IReadOnlyList<TaskStat> Stats);
+    IReadOnlyList<TaskStat> Stats,
+    IReadOnlyList<SharedFile> Files);
 
 public enum JoinStatus { Ok, NoSession, InvalidLogin, LoginTaken }
 
@@ -33,6 +41,7 @@ public sealed class SessionService
     public const int MaxLoginLength = 40;
     public const int MaxTitleLength = 100;
     public const int MaxTasks = 200;
+    public const int MaxFileNameLength = 120;
 
     private sealed class Student(string id, string token, string login)
     {
@@ -46,6 +55,7 @@ public sealed class SessionService
     private readonly List<TaskItem> _tasks = [];
     // Kolejność wstawiania = kolejność dołączania uczniów (Dictionary jej nie gwarantuje przy usuwaniu).
     private readonly List<Student> _students = [];
+    private readonly List<SharedFile> _files = [];
     private bool _active;
     private long _version;
 
@@ -60,6 +70,7 @@ public sealed class SessionService
             _active = true;
             _tasks.Clear();
             _students.Clear();
+            _files.Clear();
             for (var i = 1; i <= taskCount; i++) _tasks.Add(new TaskItem(i, null));
             _version++;
         }
@@ -75,6 +86,7 @@ public sealed class SessionService
             _active = false;
             _tasks.Clear();
             _students.Clear();
+            _files.Clear();
             _version++;
         }
         Changed?.Invoke();
@@ -105,6 +117,37 @@ public sealed class SessionService
         }
         Changed?.Invoke();
         return true;
+    }
+
+    /// <summary>Rejestruje plik (zapisany już przez wywołującego pod <paramref name="id"/>). Null, gdy brak sesji lub zadania.</summary>
+    public SharedFile? AddFile(string id, string? name, long size, int? taskNumber)
+    {
+        SharedFile file;
+        lock (_lock)
+        {
+            if (!_active || taskNumber is < 1 || taskNumber > _tasks.Count) return null;
+            file = new SharedFile(id, NormalizeFileName(name), size, taskNumber);
+            _files.Add(file);
+            _version++;
+        }
+        Changed?.Invoke();
+        return file;
+    }
+
+    public bool RemoveFile(string id)
+    {
+        lock (_lock)
+        {
+            if (_files.RemoveAll(f => f.Id == id) == 0) return false;
+            _version++;
+        }
+        Changed?.Invoke();
+        return true;
+    }
+
+    public SharedFile? GetFile(string id)
+    {
+        lock (_lock) return _active ? _files.FirstOrDefault(f => f.Id == id) : null;
     }
 
     public JoinResult Join(string? login)
@@ -156,11 +199,13 @@ public sealed class SessionService
     {
         lock (_lock)
         {
-            if (!_active) return new StudentView("waiting", null, []);
+            if (!_active) return new StudentView("waiting", null, [], []);
             var student = FindByToken(token);
-            if (student is null) return new StudentView("login", null, []);
-            var tasks = _tasks.Select(t => new StudentTaskView(t.Number, t.Title, student.Done.Contains(t.Number))).ToList();
-            return new StudentView("active", student.Login, tasks);
+            if (student is null) return new StudentView("login", null, [], []);
+            var tasks = _tasks.Select(t => new StudentTaskView(
+                t.Number, t.Title, student.Done.Contains(t.Number),
+                _files.Where(f => f.TaskNumber == t.Number).ToList())).ToList();
+            return new StudentView("active", student.Login, tasks, _files.Where(f => f.TaskNumber is null).ToList());
         }
     }
 
@@ -175,7 +220,7 @@ public sealed class SessionService
                 var percent = _students.Count == 0 ? 0 : (int)Math.Round(100.0 * done / _students.Count);
                 return new TaskStat(t.Number, done, percent);
             }).ToList();
-            return new Dashboard(_version, _active, _tasks.ToList(), students, stats);
+            return new Dashboard(_version, _active, _tasks.ToList(), students, stats, _files.ToList());
         }
     }
 
@@ -210,6 +255,16 @@ public sealed class SessionService
         var t = title?.Trim();
         if (string.IsNullOrEmpty(t)) return null;
         return t.Length > MaxTitleLength ? t[..MaxTitleLength] : t;
+    }
+
+    private static string NormalizeFileName(string? name)
+    {
+        // Przeglądarki (stary Edge/IE) potrafią wysłać pełną ścieżkę - zostawiamy samą nazwę.
+        var n = (name ?? "").Replace('\\', '/');
+        n = n[(n.LastIndexOf('/') + 1)..].Trim();
+        n = new string(n.Where(c => !char.IsControl(c)).ToArray());
+        if (n.Length == 0) n = "plik";
+        return n.Length > MaxFileNameLength ? n[..MaxFileNameLength] : n;
     }
 
     private static string CsvField(string value)

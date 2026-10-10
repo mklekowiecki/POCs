@@ -1,8 +1,9 @@
 # Teacher Help
 
-Prosta aplikacja do lekcji w pracowni: nauczyciel zakłada sesję z listą zadań,
-uczniowie w przeglądarce klikają kafelki zadań, które już zrobili, a nauczyciel
-na żywo widzi, jaki procent uczniów skończył każde zadanie.
+Prosta aplikacja do lekcji w pracowni: nauczyciel zakłada sesję z listą zadań
+i udostępnia pliki, uczniowie w przeglądarce pobierają materiały i klikają kafelki
+zadań, które już zrobili, a nauczyciel na żywo widzi, jaki procent uczniów skończył
+każde zadanie.
 
 ## Uruchomienie
 
@@ -38,6 +39,15 @@ Testy: `dotnet test` w katalogu `TeacherHelp/`.
 - Stan sesji jest trzymany tylko w pamięci serwera. „Zakończ sesję” lub restart serwera kasuje wszystko.
   Przed zakończeniem można pobrać wyniki jako CSV (separator `;`, UTF-8 – otwiera się w polskim Excelu).
 
+**Pliki**
+- Nauczyciel udostępnia pliki z panelu („Pliki dla uczniów”), przypisując je do konkretnego zadania
+  albo jako materiały ogólne dla całej lekcji. Można wysłać kilka plików naraz (limit 200 MB na wysyłkę)
+  i usuwać udostępnione pliki.
+- Uczeń widzi materiały ogólne nad kafelkami, a pliki zadania – pod jego kafelkiem.
+  Pliki są pobierane zawsze jako załącznik.
+- Pliki leżą w katalogu tymczasowym (`%TEMP%/TeacherHelp/files`) tylko na czas sesji – są kasowane
+  po jej zakończeniu i przy starcie serwera.
+
 **Uczeń**
 - Przed rozpoczęciem sesji widzi ekran „Poczekaj, aż nauczyciel rozpocznie lekcję”; strona sama się przełącza.
 - Wchodząc, wpisuje imię/login. Login jest unikalny w sesji (bez rozróżniania wielkości liter);
@@ -58,11 +68,13 @@ Testy: `dotnet test` w katalogu `TeacherHelp/`.
 - Brak powiązania z Veyonem – tożsamością ucznia jest login, komputer jest nieistotny.
 - HTTP bez TLS: hasło nauczyciela idzie po sieci lokalnej otwartym tekstem.
 - Brak trwałego zapisu i historii sesji.
+- Pobieranie plików nie wymaga logowania ucznia – wystarczy znać link (losowy identyfikator), dopóki trwa sesja.
 
 ## Architektura
 
 - ASP.NET Core (minimal API) + SignalR, jedna aplikacja serwuje też strony statyczne z `wwwroot/`.
 - `Session/SessionService.cs` – cała logika sesji (thread-safe, bez zależności od ASP.NET, pokryta testami).
+- `Session/FileStorage.cs` – zawartość udostępnionych plików na dysku (metadane trzyma `SessionService`).
 - `Hubs/StudentHub.cs` – uczeń: `GetView`, `Join`, `Toggle`.
 - `Hubs/TeacherHub.cs` – nauczyciel (wymaga logowania): `GetDashboard`; zmiany idą przez `/api/teacher/*`.
 - `Hubs/SessionNotifier.cs` – po każdej zmianie wysyła nauczycielom pełny dashboard,
@@ -82,3 +94,7 @@ Testy: `dotnet test` w katalogu `TeacherHelp/`.
 | PUT    | `/api/teacher/tasks/{n}` `{title?}` | zmień tytuł |
 | DELETE | `/api/teacher/students/{id}` | usuń ucznia |
 | GET    | `/api/teacher/export.csv` | eksport wyników |
+| POST   | `/api/teacher/files` (multipart: `files`, `task?`) | udostępnij pliki (bez `task` = materiały ogólne) |
+| DELETE | `/api/teacher/files/{id}` | usuń plik |
+
+Uczniowie pobierają pliki przez `GET /api/files/{id}` (tylko w trakcie sesji).
