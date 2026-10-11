@@ -110,3 +110,23 @@ td.actions button { padding: 2px 8px; font-size: .8rem; }
 .teacher-files li { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .teacher-files button { padding: 2px 8px; font-size: .8rem; }
 select { font: inherit; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); }
+
+/* Animacje „zadanie zrobione” */
+.celebrate-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 1000; }
+.celebrate-toast {
+  position: fixed; left: 50%; bottom: 12%; transform: translateX(-50%);
+  padding: 12px 22px; border-radius: 999px; background: var(--done); color: #fff;
+  font-size: 1.4rem; font-weight: 700; box-shadow: 0 6px 24px rgba(0,0,0,.25);
+  pointer-events: none; z-index: 1001; white-space: nowrap;
+  animation: celebrate-toast 2.6s ease forwards;
+}
+@keyframes celebrate-toast {
+  0% { opacity: 0; transform: translate(-50%, 20px) scale(.8); }
+  12% { opacity: 1; transform: translate(-50%, 0) scale(1.08); }
+  20% { transform: translate(-50%, 0) scale(1); }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -10px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .celebrate-toast { animation: none; }
+}

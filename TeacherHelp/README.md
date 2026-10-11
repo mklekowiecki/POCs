@@ -77,6 +77,11 @@ Testy: `dotnet test` w katalogu `TeacherHelp/`.
 - Przeglądarka zapamiętuje ucznia (token w `localStorage`), więc odświeżenie strony (F5) nie gubi postępu.
 - Kafelki z numerami zadań: kliknięcie oznacza zadanie jako zrobione, ponowne – cofa.
   Kolejność dowolna.
+- Oznaczenie zadania jako zrobione odpala animację i dymek „Brawo! Zadanie N zrobione”.
+  Jest 6 animacji (fajerwerki, konfetti, balony, gwiazdy, deszcz emotek, rakieta); każde zadanie losuje
+  swoją (najpierw spośród jeszcze nieużytych) i zachowuje ją do końca sesji. Zrobienie ostatniego zadania
+  odpala finał. Cofnięcie nie odpala niczego; przy włączonym w systemie „ograniczeniu animacji”
+  pokazywany jest tylko dymek. Kod: `wwwroot/celebrate.js`.
 
 **Nauczyciel**
 - Dla każdego zadania: procent i liczba uczniów, którzy je zrobili.
