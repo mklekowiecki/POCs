@@ -2,6 +2,7 @@
 
 const TOKEN_KEY = "teacherHelp.token";
 const LOGIN_KEY = "teacherHelp.lastLogin";
+const ANIM_KEY = "teacherHelp.animations";
 
 function storageGet(key) { try { return localStorage.getItem(key); } catch { return null; } }
 function storageSet(key, value) {
@@ -69,7 +70,7 @@ function render(view, sentToken) {
       title.textContent = t.title;
       btn.append(title);
     }
-    btn.addEventListener("click", () => toggle(t.number, btn));
+    btn.addEventListener("click", () => toggle(t, btn));
     const card = document.createElement("div");
     card.className = "tile-card";
     card.append(btn);
@@ -97,10 +98,37 @@ async function refresh() {
   }
 }
 
-async function toggle(number, btn) {
+// Każde zadanie dostaje losowo jedną animację i trzyma ją do końca sesji (zapis w localStorage
+// razem z tokenem ucznia). Losujemy spośród najrzadziej użytych, żeby kolejne zadania się różniły.
+function animationFor(number) {
+  const token = storageGet(TOKEN_KEY);
+  let saved = {};
+  try { saved = JSON.parse(storageGet(ANIM_KEY) ?? "{}"); } catch { /* uszkodzony wpis */ }
+  if (saved.token !== token) saved = { token, tasks: {} };
+  if (!Celebrate.kinds.includes(saved.tasks[number])) {
+    const used = Object.values(saved.tasks);
+    const counts = Celebrate.kinds.map(k => used.filter(u => u === k).length);
+    const min = Math.min(...counts);
+    const candidates = Celebrate.kinds.filter((_, i) => counts[i] === min);
+    saved.tasks[number] = candidates[Math.floor(Math.random() * candidates.length)];
+    storageSet(ANIM_KEY, JSON.stringify(saved));
+  }
+  return saved.tasks[number];
+}
+
+async function toggle(task, btn) {
   btn.disabled = true;
+  const rect = btn.getBoundingClientRect();
+  const origin = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  const tiles = [...$("tiles").querySelectorAll(".tile")];
+  const willBeDone = !task.done;
+  const completesAll = willBeDone && tiles.every(t => t === btn || t.classList.contains("done"));
   try {
-    await connection.invoke("Toggle", storageGet(TOKEN_KEY), number);
+    const ok = await connection.invoke("Toggle", storageGet(TOKEN_KEY), task.number);
+    if (ok && willBeDone) {
+      if (completesAll && tiles.length > 1) Celebrate.finale("Wszystkie zadania zrobione! 🏆");
+      else Celebrate.play(animationFor(task.number), origin, `Brawo! Zadanie ${task.number} zrobione`);
+    }
   } catch (e) {
     console.error(e);
   } finally {
