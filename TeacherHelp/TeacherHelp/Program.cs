@@ -44,7 +44,13 @@ if (teacherPassword.Length == 0)
     app.Logger.LogWarning("Brak hasła nauczyciela (TeacherHelp:TeacherPassword) - logowanie do panelu będzie niemożliwe.");
 
 app.UseDefaultFiles();
-app.UseStaticFiles();
+// Bez Cache-Control przeglądarka może przez wiele godzin brać index.html i skrypty z cache bez pytania
+// serwera, więc po aktualizacji aplikacji uczniowie dostawaliby stare strony. "no-cache" = zawsze
+// sprawdź u serwera (przy niezmienionym pliku odpowiedź to tanie 304 dzięki ETag).
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx => ctx.Context.Response.Headers.CacheControl = "no-cache",
+});
 app.UseAuthentication();
 app.UseAuthorization();
 

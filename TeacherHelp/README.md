@@ -39,6 +39,10 @@ dotnet publish -c Release -o C:\TeacherHelp   # cały katalog do skopiowania na 
 
 Hasło zmienia się wtedy w `appsettings.json` leżącym obok exe.
 
+Strony są wysyłane z nagłówkiem `Cache-Control: no-cache`, więc po aktualizacji aplikacji przeglądarki
+od razu pobierają nowe pliki. Wyjątek: komputery, które otwierały stronę jeszcze w wersji bez tego
+nagłówka, mogą mieć ją w cache – wystarczy jednorazowo odświeżyć stronę przez **Ctrl+F5**.
+
 ### Zapora sieciowa
 
 Na komputerze nauczyciela trzeba zezwolić na połączenia przychodzące na port 5000 – inaczej strona
