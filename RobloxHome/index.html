@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Strona główna – kopia układu (standalone)</title>
+<style>
+:root{
+  --bg:#191a1f; --nav:#232527; --side:#191a1f; --card:#2b2d31; --hover:#393b3d;
+  --text:#f7f7f8; --muted:#bdbebe; --blue:#335fff; --green:#00b06f; --line:#393b3d;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Builder Sans","Segoe UI",Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);font-size:15px}
+a{color:inherit;text-decoration:none}
+/* top bar */
+header{position:fixed;top:0;left:0;right:0;height:48px;background:var(--nav);display:flex;align-items:center;gap:6px;padding:0 16px;border-bottom:1px solid #000;z-index:10}
+.logo{font-weight:900;letter-spacing:1px;font-size:20px;width:144px;display:flex;align-items:center;gap:8px}
+.logo i{width:20px;height:20px;background:#fff;transform:rotate(12deg);display:inline-block;border-radius:3px}
+header nav a{padding:8px 14px;border-radius:6px;font-weight:600}
+header nav a:hover{background:var(--hover)}
+.search{margin-left:12px;flex:0 1 380px;background:#393b3d;border-radius:8px;padding:7px 12px;color:var(--muted);display:flex;gap:8px}
+.search input{background:none;border:0;outline:0;color:var(--text);width:100%;font-size:14px}
+.spacer{flex:1}
+.pill{background:var(--hover);padding:6px 12px;border-radius:20px;font-weight:600;font-size:14px}
+.avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#7a8cff,#c05bff)}
+/* sidebar */
+aside{position:fixed;top:48px;bottom:0;left:0;width:200px;background:var(--side);padding:16px 12px;border-right:1px solid var(--line);overflow:auto}
+aside a{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;font-weight:600;margin-bottom:2px}
+aside a:hover,aside a.active{background:var(--hover)}
+aside a b{width:20px;height:20px;border-radius:5px;background:var(--muted);opacity:.8}
+aside .prem{display:block;margin:14px 0 6px;padding:10px;border:1px solid var(--line);border-radius:8px;text-align:center;font-weight:700}
+aside .prem:hover{background:var(--hover)}
+/* main */
+main{margin:48px 0 0 200px;padding:24px 32px 60px;max-width:1280px}
+h1{font-size:28px;margin-bottom:20px}
+h2{font-size:20px;font-weight:700;margin:28px 0 12px;display:flex;justify-content:space-between;align-items:baseline}
+h2 a{font-size:14px;color:var(--muted);font-weight:600}
+.friends{display:flex;gap:18px;overflow:hidden}
+.friend{text-align:center;width:84px;flex:none}
+.friend .pic{width:84px;height:84px;border-radius:50%;margin-bottom:6px;position:relative}
+.friend .pic::after{content:"";position:absolute;right:4px;bottom:4px;width:14px;height:14px;border-radius:50%;background:var(--green);border:3px solid var(--bg)}
+.friend.add .pic{background:var(--card);display:grid;place-items:center;font-size:34px}
+.friend.add .pic::after{display:none}
+.friend span{font-size:13px;color:var(--muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.game{cursor:pointer}
+.thumb{aspect-ratio:1;border-radius:8px;margin-bottom:8px;transition:transform .15s;position:relative;overflow:hidden}
+.game:hover .thumb{transform:scale(1.03)}
+.thumb::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 70% 25%,rgba(255,255,255,.28),transparent 45%)}
+.game .t{font-weight:600;font-size:14px;line-height:1.25;height:35px;overflow:hidden}
+.game .r{color:var(--muted);font-size:12px;margin-top:4px;display:flex;gap:10px}
+.sorts{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.sorts span{background:var(--card);padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer}
+.sorts span:hover{background:var(--hover)}
+footer{margin:40px 0 0 200px;padding:24px 32px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+footer .links{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:10px}
+footer .links a:hover{color:var(--text)}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><i></i>BLOXLIKE</div>
+  <nav><a href="#">Odkrywaj</a><a href="#">Sklep</a><a href="#">Twórz</a><a href="#">Robux</a></nav>
+  <div class="search">🔍 <input id="q" placeholder="Szukaj"></div>
+  <div class="spacer"></div>
+  <span class="pill">⬡ 1 250</span>
+  <div class="avatar"></div>
+</header>
+
+<aside>
+  <a class="active" href="#"><b></b>Strona główna</a>
+  <a href="#"><b></b>Profil</a>
+  <a href="#"><b></b>Wiadomości</a>
+  <a href="#"><b></b>Znajomi</a>
+  <a href="#"><b></b>Awatar</a>
+  <a href="#"><b></b>Ekwipunek</a>
+  <a href="#"><b></b>Wymiana</a>
+  <a href="#"><b></b>Społeczności</a>
+  <a href="#"><b></b>Blog</a>
+  <a href="#"><b></b>Sklep z gadżetami</a>
+  <a class="prem" href="#">Zdobądź Premium</a>
+</aside>
+
+<main>
+  <h1 id="hello">Cześć, Gracz123!</h1>
+
+  <h2>Znajomi (12) <a href="#">Zobacz wszystkich</a></h2>
+  <div class="friends" id="friends"></div>
+
+  <h2>Kontynuuj <a href="#">Zobacz wszystkie</a></h2>
+  <div class="row" id="continue"></div>
+
+  <h2>Polecane dla Ciebie <a href="#">Zobacz wszystkie</a></h2>
+  <div class="sorts"><span>Wszystkie</span><span>Przygodowe</span><span>RPG</span><span>Wyścigi</span><span>Symulatory</span><span>Strzelanki</span></div>
+  <div class="row" id="rec"></div>
+
+  <h2>Popularne <a href="#">Zobacz wszystkie</a></h2>
+  <div class="row" id="pop"></div>
+
+  <h2>Ulubione znajomych <a href="#">Zobacz wszystkie</a></h2>
+  <div class="row" id="fav"></div>
+</main>
+
+<footer>
+  <div class="links"><a href="#">O nas</a><a href="#">Kariery</a><a href="#">Blog</a><a href="#">Rodzice</a><a href="#">Prezenty</a><a href="#">Pomoc</a><a href="#">Warunki</a><a href="#">Prywatność</a></div>
+  Strona demonstracyjna – niezależna makieta układu. Wszystkie nazwy, grafiki i dane są zmyślonymi zamiennikami.
+</footer>
+
+<script>
+const names=["Wyspa Skarbów","Miasto Przyszłości","Wyścig Mistrzów","Farma Marzeń","Zamek Smoków","Labirynt Cieni","Pizzeria Tycoon","Ninja Dojo","Kosmiczna Misja","Podwodny Świat","Szkoła Magii","Parkour Mania","Zombie Arena","Piekarnia Sim","Lodowa Kraina","Park Rozrywki","Pustynny Rajd","Detektyw Noir","Safari Przygoda","Mecz Wszech Czasów"];
+const hues=n=>`linear-gradient(135deg,hsl(${(n*47)%360} 70% 50%),hsl(${(n*47+60)%360} 70% 30%))`;
+function row(id,start,count){
+  document.getElementById(id).innerHTML=Array.from({length:count},(_,i)=>{
+    const n=(start+i)%names.length, likes=60+((n*13+start*7)%39), pl=((n+3)*1237+start*911)%48000+120;
+    return `<div class="game"><div class="thumb" style="background:${hues(n+start)}"></div>
+      <div class="t">${names[n]}</div><div class="r"><span>👍 ${likes}%</span><span>👤 ${pl.toLocaleString("pl-PL")}</span></div></div>`;
+  }).join("");
+}
+row("continue",0,6);row("rec",4,12);row("pop",9,12);row("fav",14,6);
+const fn=["Ania","Bartek","Celina","Darek","Ela","Franek","Gośka","Hubert","Iza","Jacek"];
+document.getElementById("friends").innerHTML=
+ `<div class="friend add"><div class="pic">+</div><span>Dodaj</span></div>`+
+ fn.map((f,i)=>`<div class="friend"><div class="pic" style="background:${hues(i*3)}"></div><span>${f}</span><span>Online</span></div>`).join("");
+document.getElementById("q").addEventListener("keydown",e=>{
+  if(e.key==="Enter"){const v=e.target.value.toLowerCase();
+    document.querySelectorAll(".game").forEach(g=>g.style.display=g.querySelector(".t").textContent.toLowerCase().includes(v)?"":"none");}
+});
+</script>
+</body>
+</html>
