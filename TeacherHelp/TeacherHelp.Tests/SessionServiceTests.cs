@@ -4,12 +4,16 @@ namespace TeacherHelp.Tests;
 
 public class SessionServiceTests
 {
+    private static int _connections;
+    /// <summary>Nowe połączenie przeglądarki.</summary>
+    private static string C() => $"conn-{Interlocked.Increment(ref _connections)}";
+
     [Fact]
     public void Student_sees_waiting_until_session_starts()
     {
         var s = new SessionService();
         Assert.Equal("waiting", s.GetStudentView(null).State);
-        Assert.Equal(JoinStatus.NoSession, s.Join("Ala", "Nowak").Status);
+        Assert.Equal(JoinStatus.NoSession, s.Join("Ala", "Nowak", C()).Status);
 
         s.Start(3);
         Assert.Equal("login", s.GetStudentView(null).State);
@@ -29,13 +33,13 @@ public class SessionServiceTests
     {
         var s = new SessionService();
         s.Start(1);
-        Assert.Equal(JoinStatus.Ok, s.Join("  Kuba ", " Nowak  ").Status);
-        Assert.Equal(JoinStatus.NameTaken, s.Join("kuba", "NOWAK").Status);
-        Assert.Equal(JoinStatus.Ok, s.Join("Kuba", "Kowalski").Status);
-        Assert.Equal(JoinStatus.Ok, s.Join("Anna  Maria", "Nowak").Status);
-        Assert.Equal(JoinStatus.InvalidName, s.Join("   ", "Nowak").Status);
-        Assert.Equal(JoinStatus.InvalidName, s.Join("Kuba", "").Status);
-        Assert.Equal(JoinStatus.InvalidName, s.Join(new string('a', 41), "Nowak").Status);
+        Assert.Equal(JoinStatus.Ok, s.Join("  Kuba ", " Nowak  ", C()).Status);
+        Assert.Equal(JoinStatus.NameTaken, s.Join("kuba", "NOWAK", C()).Status);
+        Assert.Equal(JoinStatus.Ok, s.Join("Kuba", "Kowalski", C()).Status);
+        Assert.Equal(JoinStatus.Ok, s.Join("Anna  Maria", "Nowak", C()).Status);
+        Assert.Equal(JoinStatus.InvalidName, s.Join("   ", "Nowak", C()).Status);
+        Assert.Equal(JoinStatus.InvalidName, s.Join("Kuba", "", C()).Status);
+        Assert.Equal(JoinStatus.InvalidName, s.Join(new string('a', 41), "Nowak", C()).Status);
 
         var students = s.GetDashboard().Students;
         Assert.Equal(["Kuba Nowak", "Kuba Kowalski", "Anna Maria Nowak"], students.Select(st => st.Name));
@@ -48,7 +52,7 @@ public class SessionServiceTests
     {
         var s = new SessionService();
         s.Start(5);
-        var token = s.Join("Ala", "Nowak").Token;
+        var token = s.Join("Ala", "Nowak", C()).Token;
 
         Assert.True(s.Toggle(token, 4));
         Assert.True(s.Toggle(token, 2));
@@ -66,9 +70,9 @@ public class SessionServiceTests
     {
         var s = new SessionService();
         s.Start(2);
-        var a = s.Join("A", "Nowak").Token;
-        s.Join("B", "Nowak");
-        var c = s.Join("C", "Nowak").Token;
+        var a = s.Join("A", "Nowak", C()).Token;
+        s.Join("B", "Nowak", C());
+        var c = s.Join("C", "Nowak", C()).Token;
         s.Toggle(a, 1);
         s.Toggle(c, 1);
 
@@ -91,13 +95,13 @@ public class SessionServiceTests
     {
         var s = new SessionService();
         s.Start(1);
-        var token = s.Join("Kupa", "Nowak").Token;
+        var token = s.Join("Kupa", "Nowak", C()).Token;
         var id = s.GetDashboard().Students.Single().Id;
 
         Assert.True(s.RemoveStudent(id));
         Assert.Equal("login", s.GetStudentView(token).State);
         Assert.Empty(s.GetDashboard().Students);
-        Assert.Equal(JoinStatus.Ok, s.Join("Kupa", "Nowak").Status);
+        Assert.Equal(JoinStatus.Ok, s.Join("Kupa", "Nowak", C()).Status);
     }
 
     [Fact]
@@ -119,7 +123,7 @@ public class SessionServiceTests
     {
         var s = new SessionService();
         s.Start(2);
-        var token = s.Join("Ala", "Nowak").Token;
+        var token = s.Join("Ala", "Nowak", C()).Token;
         Assert.True(s.End());
 
         Assert.Equal("waiting", s.GetStudentView(token).State);
@@ -139,7 +143,7 @@ public class SessionServiceTests
 
         s.Start(1);
         var v1 = s.GetDashboard().Version;
-        var token = s.Join("Ala", "Nowak").Token;
+        var token = s.Join("Ala", "Nowak", C()).Token;
         s.Toggle(token, 1);
 
         Assert.Equal(3, fired);
@@ -152,7 +156,7 @@ public class SessionServiceTests
         var s = new SessionService();
         s.Start(2);
         s.RenameTask(2, "Pętle; for");
-        var token = s.Join("=HYPERLINK()", "Nowak").Token;
+        var token = s.Join("=HYPERLINK()", "Nowak", C()).Token;
         s.Toggle(token, 1);
 
         var lines = s.ExportCsv().TrimEnd().Split(Environment.NewLine);
@@ -166,7 +170,7 @@ public class SessionServiceTests
     {
         var s = new SessionService();
         s.Start(2);
-        var token = s.Join("Ala", "Nowak").Token;
+        var token = s.Join("Ala", "Nowak", C()).Token;
 
         Assert.NotNull(s.AddFile("g", "plan.pdf", 10, null));
         Assert.NotNull(s.AddFile("t2", "dane.csv", 20, 2));
@@ -215,8 +219,8 @@ public class SessionServiceTests
         var source = new SessionService();
         source.Start(3);
         source.RenameTask(2, "Pętle; \"for\"");
-        var ala = source.Join("Ala", "Nowak").Token;
-        var hacker = source.Join("=1+1", "-Kowalski").Token;
+        var ala = source.Join("Ala", "Nowak", C()).Token;
+        var hacker = source.Join("=1+1", "-Kowalski", C()).Token;
         source.Toggle(ala, 1);
         source.Toggle(ala, 3);
         source.Toggle(hacker, 2);
@@ -246,17 +250,17 @@ public class SessionServiceTests
         Assert.Equal("login", view.State);
         Assert.Equal(["Ala Nowak", "Ola Kot"], view.Disconnected.Select(c => c.Name));
 
-        var ala = s.Claim(view.Disconnected[0].Id);
+        var ala = s.Claim(view.Disconnected[0].Id, C());
         Assert.Equal(JoinStatus.Ok, ala.Status);
-        Assert.Equal(JoinStatus.NotAvailable, s.Claim(view.Disconnected[0].Id).Status);
-        Assert.Equal(JoinStatus.NotAvailable, s.Claim("nieznany").Status);
+        Assert.Equal(JoinStatus.NotAvailable, s.Claim(view.Disconnected[0].Id, C()).Status);
+        Assert.Equal(JoinStatus.NotAvailable, s.Claim("nieznany", C()).Status);
         Assert.Equal("Ala Nowak", s.GetStudentView(ala.Token).Name);
         Assert.True(s.GetStudentView(ala.Token).Tasks.Single().Done);
         Assert.Equal(["Ola Kot"], s.GetStudentView(null).Disconnected.Select(c => c.Name));
 
         // Wpisanie tego samego imienia i nazwiska też łączy z zapisanym uczniem (zamiast tworzyć nowego).
-        Assert.Equal(JoinStatus.NameTaken, s.Join("ala", "nowak").Status);
-        Assert.Equal(JoinStatus.Ok, s.Join("ola", "kot").Status);
+        Assert.Equal(JoinStatus.NameTaken, s.Join("ala", "nowak", C()).Status);
+        Assert.Equal(JoinStatus.Ok, s.Join("ola", "kot", C()).Status);
         Assert.Equal(2, s.GetDashboard().Students.Count);
         Assert.Empty(s.GetStudentView(null).Disconnected);
     }
@@ -267,7 +271,7 @@ public class SessionServiceTests
         var s = new SessionService();
         s.Import("Imię;Nazwisko;Zadanie 1;Zadanie 2\nAla;Nowak;x;\n");
 
-        var nowy = s.Join("Jan", "Nowy");
+        var nowy = s.Join("Jan", "Nowy", C());
         Assert.Equal(JoinStatus.Ok, nowy.Status);
         Assert.Equal("Jan Nowy", s.GetStudentView(nowy.Token).Name);
         Assert.All(s.GetStudentView(nowy.Token).Tasks, t => Assert.False(t.Done));
@@ -277,11 +281,64 @@ public class SessionServiceTests
     }
 
     [Fact]
+    public void Student_who_closed_browser_appears_on_list_and_can_return_with_progress()
+    {
+        var s = new SessionService();
+        s.Start(2);
+        var oldTab = C();
+        var oldToken = s.Join("Ala", "Nowak", oldTab).Token;
+        s.Toggle(oldToken, 1);
+        s.Connect(oldTab, oldToken);
+        Assert.Empty(s.GetStudentView(null).Disconnected);
+
+        // Odświeżenie strony: nowe połączenie z tym samym tokenem, potem zamknięcie starego – uczeń zostaje połączony.
+        var refreshed = C();
+        s.Connect(refreshed, oldToken);
+        s.Disconnect(oldTab);
+        Assert.Empty(s.GetStudentView(null).Disconnected);
+        Assert.True(s.GetDashboard().Students.Single().Connected);
+        Assert.Equal(JoinStatus.NameTaken, s.Join("Ala", "Nowak", C()).Status);
+
+        // Zamknięcie przeglądarki: uczeń trafia na listę, a nauczyciel widzi go jako niepołączonego.
+        s.Disconnect(refreshed);
+        var choice = s.GetStudentView(null).Disconnected.Single();
+        Assert.Equal("Ala Nowak", choice.Name);
+        Assert.False(s.GetDashboard().Students.Single().Connected);
+
+        // Powrót z wyczyszczoną pamięcią przeglądarki: wybór z listy przywraca postęp, stary token przestaje działać.
+        var back = s.Claim(choice.Id, C());
+        Assert.Equal(JoinStatus.Ok, back.Status);
+        Assert.True(s.GetStudentView(back.Token).Tasks[0].Done);
+        Assert.Equal("login", s.GetStudentView(oldToken).State);
+        Assert.Empty(s.GetStudentView(null).Disconnected);
+        Assert.Single(s.GetDashboard().Students);
+    }
+
+    [Fact]
+    public void Connection_changes_bump_version_only_when_student_goes_online_or_offline()
+    {
+        var s = new SessionService();
+        s.Start(1);
+        var tab = C();
+        var token = s.Join("Ala", "Nowak", tab).Token;
+        var fired = 0;
+        s.Changed += () => fired++;
+
+        s.Connect(tab, token);       // już połączony tą kartą
+        s.Connect(C(), token);       // druga karta
+        s.Connect(C(), "nieznany");  // obcy token
+        Assert.Equal(0, fired);
+
+        s.Disconnect(tab);
+        Assert.Equal(0, fired);      // została druga karta
+    }
+
+    [Fact]
     public void Teacher_can_disconnect_student_who_keeps_progress()
     {
         var s = new SessionService();
         s.Start(2);
-        var token = s.Join("Ala", "Nowak").Token;
+        var token = s.Join("Ala", "Nowak", C()).Token;
         s.Toggle(token, 2);
         var id = s.GetDashboard().Students.Single().Id;
 
@@ -290,7 +347,7 @@ public class SessionServiceTests
         Assert.Equal("login", s.GetStudentView(token).State);
         Assert.False(s.GetDashboard().Students.Single().Connected);
 
-        var back = s.Claim(s.GetStudentView(null).Disconnected.Single().Id).Token;
+        var back = s.Claim(s.GetStudentView(null).Disconnected.Single().Id, C()).Token;
         Assert.Equal([false, true], s.GetStudentView(back).Tasks.Select(t => t.Done));
     }
 
