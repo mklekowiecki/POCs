@@ -9,7 +9,7 @@ public sealed record SharedFile(string Id, string Name, long Size, int? TaskNumb
 
 public sealed record StudentTaskView(int Number, string? Title, bool Done, IReadOnlyList<SharedFile> Files);
 
-/// <summary>Uczeń bez przypisanej przeglądarki (np. po wznowieniu sesji z CSV), do wybrania na ekranie logowania.</summary>
+/// <summary>Uczeń bez otwartej przeglądarki (zamknął ją, wznowienie sesji z CSV), do wybrania na ekranie logowania.</summary>
 public sealed record StudentChoice(string Id, string Name);
 
 /// <summary>
@@ -23,7 +23,7 @@ public sealed record StudentView(
     IReadOnlyList<SharedFile> Files,
     IReadOnlyList<StudentChoice> Disconnected);
 
-/// <summary>Connected == false: uczeń jest w sesji (np. z importu CSV), ale żadna przeglądarka go jeszcze nie wybrała.</summary>
+/// <summary>Connected == false: uczeń jest w sesji, ale nie ma otwartej przeglądarki (zamknął ją albo jest z importu CSV).</summary>
 public sealed record StudentRow(string Id, string FirstName, string LastName, string Name, bool Connected, IReadOnlyList<int> Done);
 
 public sealed record TaskStat(int Number, int DoneCount, int Percent);
@@ -54,8 +54,11 @@ public sealed class SessionService
     private sealed class Student(string id, string? token, string firstName, string lastName)
     {
         public string Id { get; } = id;
-        /// <summary>Null = uczeń rozłączony: czeka, aż ktoś wybierze go z listy na ekranie logowania.</summary>
+        /// <summary>Null = nikt jeszcze nie wrócił za tego ucznia (np. po imporcie CSV) albo nauczyciel go odłączył.</summary>
         public string? Token { get; set; } = token;
+        /// <summary>Otwarte połączenia (karty przeglądarki) ucznia. Puste = uczeń rozłączony, można go wybrać z listy.</summary>
+        public HashSet<string> Connections { get; } = [];
+        public bool Online => Connections.Count > 0;
         public string FirstName { get; } = firstName;
         public string LastName { get; } = lastName;
         public string Name => $"{FirstName} {LastName}".Trim();
@@ -163,9 +166,9 @@ public sealed class SessionService
 
     /// <summary>
     /// Dołącza ucznia po imieniu i nazwisku (unikalne w sesji, bez rozróżniania wielkości liter).
-    /// Jeśli taki uczeń jest w sesji, ale rozłączony (np. po imporcie CSV), uczeń wraca do niego razem z postępem.
+    /// Jeśli taki uczeń jest w sesji, ale rozłączony (zamknął przeglądarkę, import CSV), uczeń wraca do niego razem z postępem.
     /// </summary>
-    public JoinResult Join(string? firstName, string? lastName)
+    public JoinResult Join(string? firstName, string? lastName, string connectionId)
     {
         var first = NormalizeName(firstName);
         var last = NormalizeName(lastName);
@@ -177,27 +180,28 @@ public sealed class SessionService
             if (!_active) return new JoinResult(JoinStatus.NoSession);
             var name = $"{first} {last}";
             var existing = _students.FirstOrDefault(s => string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase));
-            if (existing is { Token: not null }) return new JoinResult(JoinStatus.NameTaken);
-            token = NewId();
-            if (existing is not null) existing.Token = token;
-            else _students.Add(new Student(NewId(), token, first, last));
+            if (existing is { Online: true }) return new JoinResult(JoinStatus.NameTaken);
+            if (existing is null) _students.Add(existing = new Student(NewId(), null, first, last));
+            token = TakeOver(existing, connectionId);
             _version++;
         }
         Changed?.Invoke();
         return new JoinResult(JoinStatus.Ok, token);
     }
 
-    /// <summary>Uczeń wybiera siebie z listy rozłączonych. NotAvailable, gdy ktoś go już wybrał albo nie ma go w sesji.</summary>
-    public JoinResult Claim(string? studentId)
+    /// <summary>
+    /// Uczeń wybiera siebie z listy rozłączonych. Dostaje nowy token – stary (np. w zamkniętej przeglądarce) przestaje działać.
+    /// NotAvailable, gdy uczeń jest połączony albo nie ma go w sesji.
+    /// </summary>
+    public JoinResult Claim(string? studentId, string connectionId)
     {
         string token;
         lock (_lock)
         {
             if (!_active) return new JoinResult(JoinStatus.NoSession);
             var student = _students.FirstOrDefault(s => s.Id == studentId);
-            if (student is not { Token: null }) return new JoinResult(JoinStatus.NotAvailable);
-            token = NewId();
-            student.Token = token;
+            if (student is not { Online: false }) return new JoinResult(JoinStatus.NotAvailable);
+            token = TakeOver(student, connectionId);
             _version++;
         }
         Changed?.Invoke();
@@ -213,12 +217,49 @@ public sealed class SessionService
         lock (_lock)
         {
             var student = _students.FirstOrDefault(s => s.Id == id);
-            if (student is not { Token: not null }) return false;
+            if (student is null || student.Token is null && !student.Online) return false;
             student.Token = null;
+            student.Connections.Clear();
             _version++;
         }
         Changed?.Invoke();
         return true;
+    }
+
+    /// <summary>
+    /// Wiąże połączenie przeglądarki z uczniem o danym tokenie (wołane przy każdym pobraniu widoku,
+    /// więc także po odświeżeniu strony i po wznowieniu połączenia).
+    /// </summary>
+    public void Connect(string connectionId, string? token)
+    {
+        lock (_lock)
+        {
+            var student = FindByToken(token);
+            if (student is null || !student.Connections.Add(connectionId) || student.Connections.Count > 1) return;
+            _version++; // uczeń właśnie wrócił
+        }
+        Changed?.Invoke();
+    }
+
+    /// <summary>Połączenie zamknięte (zamknięta karta, odświeżenie, utrata sieci). Bez połączeń uczeń trafia na listę do wybrania.</summary>
+    public void Disconnect(string connectionId)
+    {
+        lock (_lock)
+        {
+            var student = _students.FirstOrDefault(s => s.Connections.Remove(connectionId));
+            if (student is null || student.Online) return;
+            _version++;
+        }
+        Changed?.Invoke();
+    }
+
+    private string TakeOver(Student student, string connectionId)
+    {
+        foreach (var other in _students) other.Connections.Remove(connectionId);
+        student.Token = NewId();
+        student.Connections.Clear();
+        student.Connections.Add(connectionId);
+        return student.Token;
     }
 
     /// <summary>Przełącza „zrobione” dla zadania. Zwraca false, gdy token lub numer jest nieznany.</summary>
@@ -254,7 +295,7 @@ public sealed class SessionService
             var student = FindByToken(token);
             if (student is null)
             {
-                var disconnected = _students.Where(s => s.Token is null)
+                var disconnected = _students.Where(s => !s.Online)
                     .Select(s => new StudentChoice(s.Id, s.Name))
                     .OrderBy(c => c.Name, StringComparer.CurrentCultureIgnoreCase)
                     .ToList();
@@ -271,7 +312,7 @@ public sealed class SessionService
     {
         lock (_lock)
         {
-            var students = _students.Select(s => new StudentRow(s.Id, s.FirstName, s.LastName, s.Name, s.Token is not null, s.Done.ToList())).ToList();
+            var students = _students.Select(s => new StudentRow(s.Id, s.FirstName, s.LastName, s.Name, s.Online, s.Done.ToList())).ToList();
             var stats = _tasks.Select(t =>
             {
                 var done = _students.Count(s => s.Done.Contains(t.Number));

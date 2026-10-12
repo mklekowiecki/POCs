@@ -79,12 +79,16 @@ Testy: `dotnet test` w katalogu `TeacherHelp/`.
 - Przed rozpoczęciem sesji widzi ekran „Poczekaj, aż nauczyciel rozpocznie lekcję”; strona sama się przełącza.
 - Wchodząc, wpisuje imię i nazwisko (osobne pola, każde do 40 znaków). Imię i nazwisko są unikalne w sesji
   (bez rozróżniania wielkości liter, nadmiarowe spacje są usuwane); zajęte → komunikat, żeby poprosić nauczyciela o odłączenie.
-- **Powrót do sesji**: jeśli w sesji są uczniowie niepołączeni (po wznowieniu z CSV albo odłączeni przez nauczyciela),
+- **Powrót do sesji**: jeśli w sesji są uczniowie niepołączeni (zamknęli przeglądarkę, sesja wznowiona z CSV
+  albo odłączeni przez nauczyciela),
   ekran logowania pokazuje ich listę „Wracasz na lekcję? Wybierz siebie” – kliknięcie (z potwierdzeniem) przypisuje
   ucznia do tej przeglądarki razem z postępem. Wpisanie tego samego imienia i nazwiska działa tak samo.
   Pod listą jest zawsze formularz „Pierwszy raz na tej lekcji?” – nowy uczeń dołącza do wznowionej sesji
   normalnie, z pustym postępem.
 - Przeglądarka zapamiętuje ucznia (token w `localStorage`), więc odświeżenie strony (F5) nie gubi postępu.
+- Serwer śledzi otwarte połączenia ucznia (SignalR). Uczeń bez żadnej otwartej karty jest *niepołączony*
+  i pojawia się na liście do wybrania – np. po zamknięciu przeglądarki i wyczyszczeniu jej danych może wrócić,
+  klikając swoje nazwisko. Wybranie z listy daje nowy token; stary (w zamkniętej przeglądarce) przestaje działać.
 - Kafelki z numerami zadań: kliknięcie oznacza zadanie jako zrobione, ponowne – cofa.
   Kolejność dowolna.
 - Oznaczenie zadania jako zrobione odpala animację i dymek „Brawo! Zadanie N zrobione”.
@@ -98,7 +102,7 @@ Testy: `dotnet test` w katalogu `TeacherHelp/`.
 - Tabela uczeń × zadanie.
 - Procent liczony od wszystkich uczniów zalogowanych w bieżącej sesji
   (uczeń dołączający w trakcie od razu wchodzi do mianownika).
-- Uczniowie niepołączeni są oznaczeni w tabeli („niepołączony”) i liczą się do procentów.
+- Uczniowie niepołączeni (bez otwartej przeglądarki) są oznaczeni w tabeli („niepołączony”) i liczą się do procentów.
 - Przycisk „Odłącz” przy uczniu – zwalnia go od komputera (np. komputer padł albo ktoś wybrał z listy nie siebie);
   postęp zostaje, a uczeń pojawia się na liście do wybrania.
 - Przycisk „Usuń” przy uczniu (np. literówka w nazwisku) – uczeń wraca do ekranu logowania,
