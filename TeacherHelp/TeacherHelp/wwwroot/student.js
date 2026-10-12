@@ -157,6 +157,7 @@ function animationFor(number) {
 }
 
 async function toggle(task, btn) {
+  if (!task.done && !confirm(`Czy na pewno zadanie ${task.number} jest zakończone?`)) return;
   btn.disabled = true;
   const rect = btn.getBoundingClientRect();
   const origin = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
