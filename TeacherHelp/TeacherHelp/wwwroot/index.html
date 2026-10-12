@@ -20,9 +20,16 @@
 
     <section id="login" class="center hidden">
       <div class="card" style="display:inline-block">
-        <h2>Podaj swoje imię lub login</h2>
+        <div id="reconnect" class="reconnect hidden">
+          <h2>Wracasz na lekcję? Wybierz siebie</h2>
+          <div id="reconnect-list" class="choices"></div>
+          <div id="reconnect-error" class="error"></div>
+        </div>
+        <h2 id="join-title">Podaj imię i nazwisko</h2>
+        <p id="join-hint" class="muted hidden">Nie ma Cię na liście? Wpisz imię i nazwisko i dołącz jako nowy uczeń.</p>
         <form id="login-form" class="inline">
-          <input id="login-input" maxlength="40" autocomplete="off" required autofocus>
+          <input id="first-name" maxlength="40" autocomplete="off" placeholder="Imię" aria-label="Imię" required autofocus>
+          <input id="last-name" maxlength="40" autocomplete="off" placeholder="Nazwisko" aria-label="Nazwisko" required>
           <button type="submit">Dołącz</button>
         </form>
         <div id="login-error" class="error"></div>

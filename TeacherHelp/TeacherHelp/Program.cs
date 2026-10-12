@@ -17,6 +17,7 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 });
 
 const long maxUploadBytes = 200L * 1024 * 1024;
+const long maxImportBytes = 5L * 1024 * 1024;
 
 builder.Services.AddSingleton<SessionService>();
 builder.Services.AddSingleton(new FileStorage(Path.Combine(Path.GetTempPath(), "TeacherHelp", "files")));
@@ -79,6 +80,25 @@ secured.MapPost("/session/start", (StartRequest req, SessionService session) =>
     return session.Start(req.TaskCount) ? Results.NoContent() : Results.Conflict("Sesja już trwa.");
 });
 
+// Wznowienie sesji z pliku z „Eksport CSV”. Formularz czytamy ręcznie, jak przy plikach (bez antiforgery).
+secured.MapPost("/session/import", async (HttpRequest request, SessionService session, CancellationToken ct) =>
+{
+    if (!request.HasFormContentType) return Results.BadRequest("Oczekiwano formularza z plikiem.");
+    var form = await request.ReadFormAsync(ct);
+    if (form.Files.Count != 1) return Results.BadRequest("Wybierz jeden plik CSV.");
+    if (form.Files[0].Length > maxImportBytes) return Results.BadRequest("Plik jest za duży jak na wyniki lekcji.");
+    using var buffer = new MemoryStream();
+    await form.Files[0].CopyToAsync(buffer, ct);
+    try
+    {
+        return session.Import(DecodeCsv(buffer.ToArray())) ? Results.NoContent() : Results.Conflict("Sesja już trwa – najpierw ją zakończ.");
+    }
+    catch (FormatException e)
+    {
+        return Results.BadRequest(e.Message);
+    }
+});
+
 secured.MapPost("/session/end", (SessionService session, FileStorage storage) =>
 {
     if (!session.End()) return Results.Conflict("Brak aktywnej sesji.");
@@ -94,6 +114,9 @@ secured.MapPut("/tasks/{number:int}", (int number, TaskRequest req, SessionServi
 
 secured.MapDelete("/students/{id}", (string id, SessionService session) =>
     session.RemoveStudent(id) ? Results.NoContent() : Results.NotFound());
+
+secured.MapPost("/students/{id}/disconnect", (string id, SessionService session) =>
+    session.DisconnectStudent(id) ? Results.NoContent() : Results.NotFound());
 
 // Formularz czytamy ręcznie (bez bindowania IFormFile), żeby nie wymagać tokenów antiforgery.
 secured.MapPost("/files", async (HttpRequest request, SessionService session, FileStorage storage, CancellationToken ct) =>
@@ -144,6 +167,19 @@ app.Run();
 
 static bool PasswordMatches(string given, string expected) =>
     CryptographicOperations.FixedTimeEquals(SHA256.HashData(Encoding.UTF8.GetBytes(given)), SHA256.HashData(Encoding.UTF8.GetBytes(expected)));
+
+// Nasz eksport to UTF-8, ale plik zapisany ponownie w polskim Excelu bywa w Windows-1250.
+static string DecodeCsv(byte[] bytes)
+{
+    try
+    {
+        return new UTF8Encoding(false, throwOnInvalidBytes: true).GetString(bytes);
+    }
+    catch (DecoderFallbackException)
+    {
+        return CodePagesEncodingProvider.Instance.GetEncoding(1250)!.GetString(bytes);
+    }
+}
 
 record LoginRequest(string? Password);
 record StartRequest(int TaskCount);

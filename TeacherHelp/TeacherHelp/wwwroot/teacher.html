@@ -33,6 +33,13 @@
           <button type="submit">Rozpocznij</button>
         </form>
         <div id="start-error" class="error"></div>
+        <h2 class="import">Wznów sesję z pliku</h2>
+        <form id="import-form" class="inline">
+          <input id="import-input" type="file" accept=".csv,text/csv" required>
+          <button type="submit">Wznów</button>
+        </form>
+        <p class="muted">Plik z „Eksport CSV”. Uczniowie po wejściu wybiorą siebie z listy.</p>
+        <div id="import-error" class="error"></div>
       </div>
     </section>
 
@@ -65,7 +72,8 @@
           <tbody id="tbody"></tbody>
         </table>
       </div>
-      <p class="muted">Kliknij nagłówek zadania, aby zmienić tytuł. Procent liczony od zalogowanych uczniów.</p>
+      <p class="muted">Kliknij nagłówek zadania, aby zmienić tytuł. Procent liczony od wszystkich uczniów sesji.
+        „Odłącz” zwalnia ucznia od komputera (postęp zostaje) – może wtedy wybrać siebie z listy na innym.</p>
     </section>
   </main>
   <script src="lib/signalr.min.js"></script>

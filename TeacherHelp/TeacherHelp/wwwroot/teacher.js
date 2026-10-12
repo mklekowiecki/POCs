@@ -20,6 +20,16 @@ function el(tag, props = {}, ...children) {
   return node;
 }
 
+// Results.BadRequest("...") zwraca tekst jako JSON-owy string (w cudzysłowach).
+async function errorText(res) {
+  const text = await res.text();
+  try {
+    const parsed = JSON.parse(text);
+    if (typeof parsed === "string") return parsed;
+  } catch { /* zwykły tekst */ }
+  return text || res.statusText;
+}
+
 async function api(method, url, body) {
   const res = await fetch(url, {
     method,
@@ -31,7 +41,7 @@ async function api(method, url, body) {
     show("login");
     throw new Error("Wymagane logowanie");
   }
-  if (!res.ok) throw new Error((await res.text()) || res.statusText);
+  if (!res.ok) throw new Error(await errorText(res));
   return res;
 }
 
@@ -85,7 +95,8 @@ function render(d) {
   renderFiles(d);
 
   const n = d.students.length;
-  $("summary").textContent = `Uczniów: ${n}`;
+  const disconnected = d.students.filter(s => !s.connected).length;
+  $("summary").textContent = `Uczniów: ${n}` + (disconnected ? ` (niepołączonych: ${disconnected})` : "");
 
   const statsByNumber = new Map(d.stats.map(s => [s.number, s]));
   $("stats").replaceChildren(...d.tasks.map(t => {
@@ -113,12 +124,22 @@ function render(d) {
     const done = new Set(s.done);
     const remove = el("button", { type: "button", className: "danger", textContent: "Usuń" });
     remove.addEventListener("click", () => removeStudent(s));
+    const actions = el("td", { className: "actions" });
+    if (s.connected) {
+      const disconnect = el("button", { type: "button", className: "secondary", textContent: "Odłącz",
+        title: "Uczeń wybierze siebie z listy na ekranie logowania – postęp zostaje" });
+      disconnect.addEventListener("click", () => disconnectStudent(s));
+      actions.append(disconnect);
+    }
+    actions.append(remove);
+    const name = el("td", { textContent: s.name });
+    if (!s.connected) name.append(el("span", { className: "badge", textContent: "niepołączony" }));
     return el("tr", {},
-      el("td", { textContent: s.login }),
+      name,
       ...d.tasks.map(t => done.has(t.number)
         ? el("td", { className: "yes", textContent: "✓" })
         : el("td")),
-      el("td", { className: "actions" }, remove));
+      actions);
   }));
 }
 
@@ -129,8 +150,13 @@ async function rename(t) {
 }
 
 async function removeStudent(s) {
-  if (!confirm(`Usunąć ucznia „${s.login}” z sesji? Jego postęp zostanie utracony.`)) return;
+  if (!confirm(`Usunąć ucznia „${s.name}” z sesji? Jego postęp zostanie utracony.`)) return;
   try { await api("DELETE", `api/teacher/students/${encodeURIComponent(s.id)}`); } catch (e) { alert(e.message); }
+}
+
+async function disconnectStudent(s) {
+  if (!confirm(`Odłączyć ucznia „${s.name}” od komputera? Postęp zostaje, a uczeń wybierze siebie z listy przy ponownym wejściu.`)) return;
+  try { await api("POST", `api/teacher/students/${encodeURIComponent(s.id)}/disconnect`); } catch (e) { alert(e.message); }
 }
 
 async function startConnection() {
@@ -192,6 +218,22 @@ $("start-form").addEventListener("submit", async ev => {
   }
 });
 
+$("import-form").addEventListener("submit", async ev => {
+  ev.preventDefault();
+  $("import-error").textContent = "";
+  const input = $("import-input");
+  const form = new FormData();
+  form.append("file", input.files[0]);
+  try {
+    const res = await fetch("api/teacher/session/import", { method: "POST", body: form });
+    if (res.status === 401) { await stopConnection(); show("login"); return; }
+    if (!res.ok) throw new Error(await errorText(res));
+    input.value = "";
+  } catch (e) {
+    $("import-error").textContent = e.message;
+  }
+});
+
 $("add-form").addEventListener("submit", async ev => {
   ev.preventDefault();
   try {
@@ -216,7 +258,7 @@ $("upload-form").addEventListener("submit", async ev => {
     const res = await fetch("api/teacher/files", { method: "POST", body: form });
     if (res.status === 401) { await stopConnection(); show("login"); return; }
     if (res.status === 413) throw new Error("Plik jest za duży (limit 200 MB).");
-    if (!res.ok) throw new Error((await res.text()) || res.statusText);
+    if (!res.ok) throw new Error(await errorText(res));
     input.value = "";
   } catch (e) {
     $("upload-error").textContent = e.message;
