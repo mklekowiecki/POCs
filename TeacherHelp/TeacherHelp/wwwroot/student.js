@@ -23,6 +23,24 @@ function fileLinks(files) {
     return li;
   });
 }
+
+// Własny dialog potwierdzenia (zamiast confirm()). Zwraca true po wybraniu przycisku „tak”.
+function confirmDialog({ badge, title, text, yes, no }) {
+  const dlg = $("confirm");
+  $("confirm-badge").textContent = badge;
+  $("confirm-title").textContent = title;
+  $("confirm-text").textContent = text ?? "";
+  $("confirm-text").classList.toggle("hidden", !text);
+  $("confirm-yes").textContent = yes;
+  $("confirm-no").textContent = no;
+  return new Promise(resolve => {
+    dlg.addEventListener("close", () => resolve(dlg.returnValue === "yes"), { once: true });
+    dlg.returnValue = "no";
+    dlg.showModal();
+    $("confirm-yes").focus();
+  });
+}
+
 const connection = new signalR.HubConnectionBuilder()
   .withUrl("hubs/student")
   .withAutomaticReconnect({ nextRetryDelayInMilliseconds: () => 2000 })
@@ -35,6 +53,25 @@ function show(section) {
 function setStatus(text, offline) {
   $("status").textContent = text;
   $("status").classList.toggle("offline", !!offline);
+}
+
+function renderWho(name) {
+  const avatar = document.createElement("span");
+  avatar.className = "avatar";
+  avatar.textContent = name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => [...w][0].toUpperCase()).join("");
+  const label = document.createElement("span");
+  label.textContent = name;
+  $("who").replaceChildren(avatar, label);
+}
+
+function renderProgress(tasks) {
+  const done = tasks.filter(t => t.done).length;
+  const percent = tasks.length === 0 ? 0 : Math.round(100 * done / tasks.length);
+  $("progress").classList.toggle("hidden", tasks.length === 0);
+  $("progress-text").textContent = `Zrobione ${done} z ${tasks.length}`;
+  $("progress-fill").style.width = `${percent}%`;
+  $("progress-bar").setAttribute("aria-valuenow", String(percent));
+  $("progress").classList.toggle("complete", tasks.length > 0 && done === tasks.length);
 }
 
 function render(view, sentToken) {
@@ -57,7 +94,7 @@ function render(view, sentToken) {
     show("login");
     return;
   }
-  $("who").textContent = view.name;
+  renderWho(view.name);
   $("materials").classList.toggle("hidden", view.files.length === 0);
   $("materials-list").replaceChildren(...fileLinks(view.files));
   const tiles = $("tiles");
@@ -69,7 +106,11 @@ function render(view, sentToken) {
     const num = document.createElement("span");
     num.className = "num";
     num.textContent = t.number;
-    btn.append(num);
+    const check = document.createElement("span");
+    check.className = "check";
+    check.setAttribute("aria-hidden", "true");
+    check.textContent = "✓";
+    btn.append(check, num);
     if (t.title) {
       const title = document.createElement("span");
       title.className = "title";
@@ -88,6 +129,7 @@ function render(view, sentToken) {
     }
     return card;
   }));
+  renderProgress(view.tasks);
   show("tasks");
 }
 
@@ -108,7 +150,10 @@ function renderReconnect(students) {
 }
 
 async function claim(student, btn) {
-  if (!confirm(`Czy na pewno jesteś: ${student.name}?`)) return;
+  const ok = await confirmDialog({
+    badge: "👋", title: `Czy to na pewno Ty?`, text: student.name, yes: "Tak, to ja", no: "Wróć",
+  });
+  if (!ok) return;
   $("reconnect-error").textContent = "";
   btn.disabled = true;
   try {
@@ -157,7 +202,13 @@ function animationFor(number) {
 }
 
 async function toggle(task, btn) {
-  if (!task.done && !confirm(`Czy na pewno zadanie ${task.number} jest zakończone?`)) return;
+  if (!task.done) {
+    const ok = await confirmDialog({
+      badge: task.number, title: "Czy zadanie jest zrobione?",
+      text: task.title || `Zadanie ${task.number}`, yes: "Tak, zrobione ✓", no: "Jeszcze nie",
+    });
+    if (!ok) return;
+  }
   btn.disabled = true;
   const rect = btn.getBoundingClientRect();
   const origin = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };

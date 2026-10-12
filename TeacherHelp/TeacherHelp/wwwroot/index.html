@@ -9,17 +9,20 @@
 <body>
   <header>
     <h1>Lekcja Informatyki</h1>
-    <span id="who" class="muted"></span>
-    <span id="status" class="status">Łączenie…</span>
+    <div class="header-right">
+      <span id="who" class="chip"></span>
+      <span id="status" class="status">Łączenie…</span>
+    </div>
   </header>
   <main>
     <section id="waiting" class="center hidden">
+      <div class="spinner" aria-hidden="true"></div>
       <h2>Poczekaj, aż nauczyciel rozpocznie lekcję</h2>
       <p class="muted">Strona przełączy się sama.</p>
     </section>
 
     <section id="login" class="center hidden">
-      <div class="card" style="display:inline-block">
+      <div class="card login-card">
         <div id="reconnect" class="reconnect hidden">
           <h2>Wracasz na lekcję? Wybierz siebie</h2>
           <div id="reconnect-list" class="choices"></div>
@@ -27,7 +30,7 @@
         </div>
         <h2 id="join-title">Podaj imię i nazwisko</h2>
         <p id="join-hint" class="muted hidden">Nie ma Cię na liście? Wpisz imię i nazwisko i dołącz jako nowy uczeń.</p>
-        <form id="login-form" class="inline">
+        <form id="login-form" class="login-form">
           <input id="first-name" maxlength="40" autocomplete="off" placeholder="Imię" aria-label="Imię" required autofocus>
           <input id="last-name" maxlength="40" autocomplete="off" placeholder="Nazwisko" aria-label="Nazwisko" required>
           <button type="submit">Dołącz</button>
@@ -41,10 +44,31 @@
         <h3>Materiały do lekcji</h3>
         <ul id="materials-list" class="files"></ul>
       </div>
-      <p class="muted">Kliknij kafelek, gdy zrobisz zadanie. Kliknij ponownie, aby cofnąć.</p>
+      <div class="progress" id="progress">
+        <div class="progress-head">
+          <span id="progress-text" class="progress-text"></span>
+          <span class="muted hint">👆 Kliknij kafelek, gdy zrobisz zadanie. Kliknij ponownie, aby cofnąć.</span>
+        </div>
+        <div class="progress-bar" role="progressbar" id="progress-bar" aria-valuemin="0" aria-valuemax="100">
+          <span id="progress-fill"></span>
+        </div>
+      </div>
       <div id="tiles" class="tiles"></div>
     </section>
   </main>
+
+  <dialog id="confirm" class="confirm">
+    <form method="dialog" class="confirm-body">
+      <div id="confirm-badge" class="confirm-badge" aria-hidden="true"></div>
+      <h2 id="confirm-title"></h2>
+      <p id="confirm-text" class="muted"></p>
+      <div class="confirm-actions">
+        <button type="submit" id="confirm-no" value="no" class="secondary"></button>
+        <button type="submit" id="confirm-yes" value="yes" class="success"></button>
+      </div>
+    </form>
+  </dialog>
+
   <script src="lib/signalr.min.js"></script>
   <script src="celebrate.js"></script>
   <script src="student.js"></script>
