@@ -1,7 +1,8 @@
 "use strict";
 
 const TOKEN_KEY = "teacherHelp.token";
-const LOGIN_KEY = "teacherHelp.lastLogin";
+const FIRST_NAME_KEY = "teacherHelp.firstName";
+const LAST_NAME_KEY = "teacherHelp.lastName";
 const ANIM_KEY = "teacherHelp.animations";
 
 function storageGet(key) { try { return localStorage.getItem(key); } catch { return null; } }
@@ -47,11 +48,16 @@ function render(view, sentToken) {
     // wysłano zapytanie - w międzyczasie uczeń mógł już dołączyć i dostać nowy.
     if (sentToken && storageGet(TOKEN_KEY) === sentToken) storageSet(TOKEN_KEY, null);
     $("who").textContent = "";
-    if ($("login").classList.contains("hidden")) $("login-input").value = storageGet(LOGIN_KEY) ?? "";
+    if ($("login").classList.contains("hidden")) {
+      $("first-name").value = storageGet(FIRST_NAME_KEY) ?? "";
+      $("last-name").value = storageGet(LAST_NAME_KEY) ?? "";
+      $("reconnect-error").textContent = "";
+    }
+    renderReconnect(view.disconnected);
     show("login");
     return;
   }
-  $("who").textContent = view.login;
+  $("who").textContent = view.name;
   $("materials").classList.toggle("hidden", view.files.length === 0);
   $("materials-list").replaceChildren(...fileLinks(view.files));
   const tiles = $("tiles");
@@ -83,6 +89,37 @@ function render(view, sentToken) {
     return card;
   }));
   show("tasks");
+}
+
+// Powrót do sesji (np. wznowionej przez nauczyciela z CSV): lista uczniów, za których nikt jeszcze nie wrócił.
+function renderReconnect(students) {
+  $("reconnect").classList.toggle("hidden", students.length === 0);
+  $("reconnect-list").replaceChildren(...students.map(s => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "secondary";
+    btn.textContent = s.name;
+    btn.addEventListener("click", () => claim(s, btn));
+    return btn;
+  }));
+}
+
+async function claim(student, btn) {
+  if (!confirm(`Czy na pewno jesteś: ${student.name}?`)) return;
+  $("reconnect-error").textContent = "";
+  btn.disabled = true;
+  try {
+    const result = await connection.invoke("Claim", student.id);
+    if (result.status === "Ok") storageSet(TOKEN_KEY, result.token);
+    else if (result.status === "NotAvailable")
+      $("reconnect-error").textContent = `${student.name} jest już połączony na innym komputerze. Jeśli to Ty – poproś nauczyciela o odłączenie.`;
+  } catch (e) {
+    $("reconnect-error").textContent = "Brak połączenia z serwerem.";
+    return;
+  } finally {
+    btn.disabled = false;
+  }
+  await refresh();
 }
 
 let refreshSeq = 0;
@@ -138,21 +175,23 @@ async function toggle(task, btn) {
 
 $("login-form").addEventListener("submit", async ev => {
   ev.preventDefault();
-  const login = $("login-input").value.trim();
+  const firstName = $("first-name").value.trim();
+  const lastName = $("last-name").value.trim();
   $("login-error").textContent = "";
-  if (!login) return;
+  if (!firstName || !lastName) return;
   try {
-    const result = await connection.invoke("Join", login);
+    const result = await connection.invoke("Join", firstName, lastName);
     switch (result.status) {
       case "Ok":
         storageSet(TOKEN_KEY, result.token);
-        storageSet(LOGIN_KEY, login);
+        storageSet(FIRST_NAME_KEY, firstName);
+        storageSet(LAST_NAME_KEY, lastName);
         break;
-      case "LoginTaken":
-        $("login-error").textContent = "Ten login jest już zajęty – wybierz inny.";
+      case "NameTaken":
+        $("login-error").textContent = "Ktoś o tym imieniu i nazwisku już jest na lekcji. Jeśli to Ty – poproś nauczyciela o odłączenie.";
         return;
-      case "InvalidLogin":
-        $("login-error").textContent = "Login musi mieć od 1 do 40 znaków.";
+      case "InvalidName":
+        $("login-error").textContent = "Imię i nazwisko muszą mieć od 1 do 40 znaków.";
         return;
       default:
         break;

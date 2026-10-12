@@ -9,7 +9,7 @@ public class SessionServiceTests
     {
         var s = new SessionService();
         Assert.Equal("waiting", s.GetStudentView(null).State);
-        Assert.Equal(JoinStatus.NoSession, s.Join("Ala").Status);
+        Assert.Equal(JoinStatus.NoSession, s.Join("Ala", "Nowak").Status);
 
         s.Start(3);
         Assert.Equal("login", s.GetStudentView(null).State);
@@ -25,15 +25,22 @@ public class SessionServiceTests
     }
 
     [Fact]
-    public void Login_is_unique_case_insensitive_and_trimmed()
+    public void Full_name_is_unique_case_insensitive_and_trimmed()
     {
         var s = new SessionService();
         s.Start(1);
-        Assert.Equal(JoinStatus.Ok, s.Join("  Kuba ").Status);
-        Assert.Equal(JoinStatus.LoginTaken, s.Join("kuba").Status);
-        Assert.Equal(JoinStatus.InvalidLogin, s.Join("   ").Status);
-        Assert.Equal(JoinStatus.InvalidLogin, s.Join(new string('a', 41)).Status);
-        Assert.Equal("Kuba", s.GetDashboard().Students.Single().Login);
+        Assert.Equal(JoinStatus.Ok, s.Join("  Kuba ", " Nowak  ").Status);
+        Assert.Equal(JoinStatus.NameTaken, s.Join("kuba", "NOWAK").Status);
+        Assert.Equal(JoinStatus.Ok, s.Join("Kuba", "Kowalski").Status);
+        Assert.Equal(JoinStatus.Ok, s.Join("Anna  Maria", "Nowak").Status);
+        Assert.Equal(JoinStatus.InvalidName, s.Join("   ", "Nowak").Status);
+        Assert.Equal(JoinStatus.InvalidName, s.Join("Kuba", "").Status);
+        Assert.Equal(JoinStatus.InvalidName, s.Join(new string('a', 41), "Nowak").Status);
+
+        var students = s.GetDashboard().Students;
+        Assert.Equal(["Kuba Nowak", "Kuba Kowalski", "Anna Maria Nowak"], students.Select(st => st.Name));
+        Assert.Equal(("Kuba", "Nowak"), (students[0].FirstName, students[0].LastName));
+        Assert.All(students, st => Assert.True(st.Connected));
     }
 
     [Fact]
@@ -41,7 +48,7 @@ public class SessionServiceTests
     {
         var s = new SessionService();
         s.Start(5);
-        var token = s.Join("Ala").Token;
+        var token = s.Join("Ala", "Nowak").Token;
 
         Assert.True(s.Toggle(token, 4));
         Assert.True(s.Toggle(token, 2));
@@ -59,9 +66,9 @@ public class SessionServiceTests
     {
         var s = new SessionService();
         s.Start(2);
-        var a = s.Join("A").Token;
-        s.Join("B");
-        var c = s.Join("C").Token;
+        var a = s.Join("A", "Nowak").Token;
+        s.Join("B", "Nowak");
+        var c = s.Join("C", "Nowak").Token;
         s.Toggle(a, 1);
         s.Toggle(c, 1);
 
@@ -84,13 +91,13 @@ public class SessionServiceTests
     {
         var s = new SessionService();
         s.Start(1);
-        var token = s.Join("Kupa").Token;
+        var token = s.Join("Kupa", "Nowak").Token;
         var id = s.GetDashboard().Students.Single().Id;
 
         Assert.True(s.RemoveStudent(id));
         Assert.Equal("login", s.GetStudentView(token).State);
         Assert.Empty(s.GetDashboard().Students);
-        Assert.Equal(JoinStatus.Ok, s.Join("Kupa").Status);
+        Assert.Equal(JoinStatus.Ok, s.Join("Kupa", "Nowak").Status);
     }
 
     [Fact]
@@ -112,7 +119,7 @@ public class SessionServiceTests
     {
         var s = new SessionService();
         s.Start(2);
-        var token = s.Join("Ala").Token;
+        var token = s.Join("Ala", "Nowak").Token;
         Assert.True(s.End());
 
         Assert.Equal("waiting", s.GetStudentView(token).State);
@@ -132,7 +139,7 @@ public class SessionServiceTests
 
         s.Start(1);
         var v1 = s.GetDashboard().Version;
-        var token = s.Join("Ala").Token;
+        var token = s.Join("Ala", "Nowak").Token;
         s.Toggle(token, 1);
 
         Assert.Equal(3, fired);
@@ -145,13 +152,13 @@ public class SessionServiceTests
         var s = new SessionService();
         s.Start(2);
         s.RenameTask(2, "Pętle; for");
-        var token = s.Join("=HYPERLINK()").Token;
+        var token = s.Join("=HYPERLINK()", "Nowak").Token;
         s.Toggle(token, 1);
 
         var lines = s.ExportCsv().TrimEnd().Split(Environment.NewLine);
-        Assert.Equal("Uczeń;Zadanie 1;\"2. Pętle; for\"", lines[0]);
-        Assert.Equal("'=HYPERLINK();x;", lines[1]);
-        Assert.Equal("Procent;100%;0%", lines[2]);
+        Assert.Equal("Imię;Nazwisko;Zadanie 1;\"2. Pętle; for\"", lines[0]);
+        Assert.Equal("'=HYPERLINK();Nowak;x;", lines[1]);
+        Assert.Equal("Procent;;100%;0%", lines[2]);
     }
 
     [Fact]
@@ -159,7 +166,7 @@ public class SessionServiceTests
     {
         var s = new SessionService();
         s.Start(2);
-        var token = s.Join("Ala").Token;
+        var token = s.Join("Ala", "Nowak").Token;
 
         Assert.NotNull(s.AddFile("g", "plan.pdf", 10, null));
         Assert.NotNull(s.AddFile("t2", "dane.csv", 20, 2));
@@ -200,5 +207,98 @@ public class SessionServiceTests
         Assert.Null(s.GetFile("b"));
         s.Start(1);
         Assert.Empty(s.GetDashboard().Files);
+    }
+
+    [Fact]
+    public void Import_restores_exported_session_with_all_students_disconnected()
+    {
+        var source = new SessionService();
+        source.Start(3);
+        source.RenameTask(2, "Pętle; \"for\"");
+        var ala = source.Join("Ala", "Nowak").Token;
+        var hacker = source.Join("=1+1", "-Kowalski").Token;
+        source.Toggle(ala, 1);
+        source.Toggle(ala, 3);
+        source.Toggle(hacker, 2);
+        var csv = source.ExportCsv();
+
+        var s = new SessionService();
+        Assert.True(s.Import(csv));
+        Assert.False(s.Import(csv)); // sesja już trwa
+
+        var d = s.GetDashboard();
+        Assert.True(d.Active);
+        Assert.Equal([null, "Pętle; \"for\"", null], d.Tasks.Select(t => t.Title));
+        Assert.Equal(["Ala Nowak", "=1+1 -Kowalski"], d.Students.Select(st => st.Name));
+        Assert.Equal([1, 3], d.Students[0].Done);
+        Assert.Equal([2], d.Students[1].Done);
+        Assert.All(d.Students, st => Assert.False(st.Connected));
+        Assert.Equal(source.ExportCsv(), s.ExportCsv());
+    }
+
+    [Fact]
+    public void Student_returns_to_imported_session_by_picking_themselves_or_typing_name()
+    {
+        var s = new SessionService();
+        s.Import("Imię;Nazwisko;Zadanie 1\nAla;Nowak;x\nOla;Kot;\nProcent;;50%\n");
+
+        var view = s.GetStudentView(null);
+        Assert.Equal("login", view.State);
+        Assert.Equal(["Ala Nowak", "Ola Kot"], view.Disconnected.Select(c => c.Name));
+
+        var ala = s.Claim(view.Disconnected[0].Id);
+        Assert.Equal(JoinStatus.Ok, ala.Status);
+        Assert.Equal(JoinStatus.NotAvailable, s.Claim(view.Disconnected[0].Id).Status);
+        Assert.Equal(JoinStatus.NotAvailable, s.Claim("nieznany").Status);
+        Assert.Equal("Ala Nowak", s.GetStudentView(ala.Token).Name);
+        Assert.True(s.GetStudentView(ala.Token).Tasks.Single().Done);
+        Assert.Equal(["Ola Kot"], s.GetStudentView(null).Disconnected.Select(c => c.Name));
+
+        // Wpisanie tego samego imienia i nazwiska też łączy z zapisanym uczniem (zamiast tworzyć nowego).
+        Assert.Equal(JoinStatus.NameTaken, s.Join("ala", "nowak").Status);
+        Assert.Equal(JoinStatus.Ok, s.Join("ola", "kot").Status);
+        Assert.Equal(2, s.GetDashboard().Students.Count);
+        Assert.Empty(s.GetStudentView(null).Disconnected);
+    }
+
+    [Fact]
+    public void Teacher_can_disconnect_student_who_keeps_progress()
+    {
+        var s = new SessionService();
+        s.Start(2);
+        var token = s.Join("Ala", "Nowak").Token;
+        s.Toggle(token, 2);
+        var id = s.GetDashboard().Students.Single().Id;
+
+        Assert.True(s.DisconnectStudent(id));
+        Assert.False(s.DisconnectStudent(id));
+        Assert.Equal("login", s.GetStudentView(token).State);
+        Assert.False(s.GetDashboard().Students.Single().Connected);
+
+        var back = s.Claim(s.GetStudentView(null).Disconnected.Single().Id).Token;
+        Assert.Equal([false, true], s.GetStudentView(back).Tasks.Select(t => t.Done));
+    }
+
+    [Fact]
+    public void Import_accepts_old_single_column_format_and_comma_separator()
+    {
+        var s = new SessionService();
+        Assert.True(s.Import("\uFEFFUczeń,Zadanie 1,2. Wstęp\r\nJan Maria Kowalski,,x\r\nProcent,0%,100%\r\n"));
+        var student = s.GetDashboard().Students.Single();
+        Assert.Equal(("Jan Maria", "Kowalski"), (student.FirstName, student.LastName));
+        Assert.Equal([2], student.Done);
+        Assert.Equal([null, "Wstęp"], s.GetDashboard().Tasks.Select(t => t.Title));
+    }
+
+    [Theory]
+    [InlineData("coś zupełnie innego")]
+    [InlineData("Imię;Nazwisko\nAla;Nowak\n")]
+    [InlineData("Imię;Nazwisko;Zadanie 1\nAla;Nowak;x\nala;NOWAK;\n")]
+    [InlineData("Imię;Nazwisko;Zadanie 1\n;Nowak;x\n")]
+    public void Import_rejects_invalid_files_without_starting_session(string csv)
+    {
+        var s = new SessionService();
+        Assert.Throws<FormatException>(() => s.Import(csv));
+        Assert.False(s.GetDashboard().Active);
     }
 }
