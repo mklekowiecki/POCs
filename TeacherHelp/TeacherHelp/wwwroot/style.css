@@ -62,7 +62,7 @@ button:disabled { opacity: .5; cursor: default; }
 
 /* Uczeń: powrót do sesji */
 .reconnect { max-width: 640px; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
-.choices { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.choices { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-height: 40vh; overflow-y: auto; }
 
 /* Uczeń: kafelki */
 .tiles {

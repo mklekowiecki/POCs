@@ -93,7 +93,10 @@ function render(view, sentToken) {
 
 // Powrót do sesji (np. wznowionej przez nauczyciela z CSV): lista uczniów, za których nikt jeszcze nie wrócił.
 function renderReconnect(students) {
-  $("reconnect").classList.toggle("hidden", students.length === 0);
+  const returning = students.length > 0;
+  $("reconnect").classList.toggle("hidden", !returning);
+  $("join-hint").classList.toggle("hidden", !returning);
+  $("join-title").textContent = returning ? "Pierwszy raz na tej lekcji?" : "Podaj imię i nazwisko";
   $("reconnect-list").replaceChildren(...students.map(s => {
     const btn = document.createElement("button");
     btn.type = "button";

@@ -262,6 +262,21 @@ public class SessionServiceTests
     }
 
     [Fact]
+    public void New_student_can_join_imported_session()
+    {
+        var s = new SessionService();
+        s.Import("Imię;Nazwisko;Zadanie 1;Zadanie 2\nAla;Nowak;x;\n");
+
+        var nowy = s.Join("Jan", "Nowy");
+        Assert.Equal(JoinStatus.Ok, nowy.Status);
+        Assert.Equal("Jan Nowy", s.GetStudentView(nowy.Token).Name);
+        Assert.All(s.GetStudentView(nowy.Token).Tasks, t => Assert.False(t.Done));
+        Assert.Equal(["Ala Nowak"], s.GetStudentView(null).Disconnected.Select(c => c.Name));
+        Assert.Equal(["Ala Nowak", "Jan Nowy"], s.GetDashboard().Students.Select(st => st.Name));
+        Assert.Equal(50, s.GetDashboard().Stats[0].Percent);
+    }
+
+    [Fact]
     public void Teacher_can_disconnect_student_who_keeps_progress()
     {
         var s = new SessionService();

@@ -82,6 +82,8 @@ Testy: `dotnet test` w katalogu `TeacherHelp/`.
 - **Powrót do sesji**: jeśli w sesji są uczniowie niepołączeni (po wznowieniu z CSV albo odłączeni przez nauczyciela),
   ekran logowania pokazuje ich listę „Wracasz na lekcję? Wybierz siebie” – kliknięcie (z potwierdzeniem) przypisuje
   ucznia do tej przeglądarki razem z postępem. Wpisanie tego samego imienia i nazwiska działa tak samo.
+  Pod listą jest zawsze formularz „Pierwszy raz na tej lekcji?” – nowy uczeń dołącza do wznowionej sesji
+  normalnie, z pustym postępem.
 - Przeglądarka zapamiętuje ucznia (token w `localStorage`), więc odświeżenie strony (F5) nie gubi postępu.
 - Kafelki z numerami zadań: kliknięcie oznacza zadanie jako zrobione, ponowne – cofa.
   Kolejność dowolna.
