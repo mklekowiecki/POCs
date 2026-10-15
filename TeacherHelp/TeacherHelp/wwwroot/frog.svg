@@ -1,30 +1,46 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 170" role="img" aria-label="Zielona żaba">
-  <!-- tylne łapy -->
-  <ellipse cx="38" cy="148" rx="34" ry="14" fill="#2f9e44"/>
-  <ellipse cx="162" cy="148" rx="34" ry="14" fill="#2f9e44"/>
-  <!-- ciało -->
-  <ellipse cx="100" cy="112" rx="72" ry="50" fill="#40c057"/>
-  <ellipse cx="100" cy="128" rx="44" ry="28" fill="#b2f2bb"/>
-  <!-- głowa -->
-  <ellipse cx="100" cy="78" rx="64" ry="40" fill="#40c057"/>
-  <!-- oczy -->
-  <circle cx="66" cy="44" r="24" fill="#40c057"/>
-  <circle cx="134" cy="44" r="24" fill="#40c057"/>
-  <circle cx="66" cy="42" r="16" fill="#fff"/>
-  <circle cx="134" cy="42" r="16" fill="#fff"/>
-  <circle cx="70" cy="44" r="8" fill="#1d2330"/>
-  <circle cx="130" cy="44" r="8" fill="#1d2330"/>
-  <circle cx="73" cy="40" r="3" fill="#fff"/>
-  <circle cx="133" cy="40" r="3" fill="#fff"/>
-  <!-- policzki i uśmiech -->
-  <ellipse cx="52" cy="88" rx="10" ry="6" fill="#ff8fa3" opacity=".7"/>
-  <ellipse cx="148" cy="88" rx="10" ry="6" fill="#ff8fa3" opacity=".7"/>
-  <path d="M70 86 Q100 112 130 86" fill="none" stroke="#1d2330" stroke-width="5" stroke-linecap="round"/>
-  <circle cx="90" cy="70" r="2.5" fill="#1d2330"/>
-  <circle cx="110" cy="70" r="2.5" fill="#1d2330"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 160" role="img" aria-label="Zielona żaba">
+  <defs>
+    <linearGradient id="skin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3fae5a"/>
+      <stop offset="1" stop-color="#23783a"/>
+    </linearGradient>
+    <radialGradient id="iris" cx=".5" cy=".45" r=".55">
+      <stop offset="0" stop-color="#f2c94c"/>
+      <stop offset="1" stop-color="#b7862a"/>
+    </radialGradient>
+  </defs>
+  <!-- tylne nogi -->
+  <path d="M30 150 C14 132 30 104 58 108 L72 146 Z" fill="#1f6b33"/>
+  <path d="M170 150 C186 132 170 104 142 108 L128 146 Z" fill="#1f6b33"/>
+  <ellipse cx="40" cy="153" rx="30" ry="5" fill="#1f6b33"/>
+  <ellipse cx="160" cy="153" rx="30" ry="5" fill="#1f6b33"/>
+  <!-- tułów -->
+  <path d="M100 52 C150 52 172 92 164 128 C158 150 132 156 100 156 C68 156 42 150 36 128 C28 92 50 52 100 52 Z" fill="url(#skin)"/>
+  <path d="M100 108 C122 108 134 122 132 140 C130 152 116 155 100 155 C84 155 70 152 68 140 C66 122 78 108 100 108 Z" fill="#cfe8c4" opacity=".55"/>
+  <!-- plamki na grzbiecie -->
+  <ellipse cx="66" cy="104" rx="7" ry="5" fill="#1f6b33" opacity=".55"/>
+  <ellipse cx="138" cy="100" rx="6" ry="4" fill="#1f6b33" opacity=".55"/>
+  <ellipse cx="148" cy="122" rx="4" ry="3" fill="#1f6b33" opacity=".55"/>
+  <ellipse cx="52" cy="124" rx="4" ry="3" fill="#1f6b33" opacity=".55"/>
   <!-- przednie łapy -->
-  <path d="M58 150 q-6 8 -14 8 M58 150 q0 10 -4 14 M58 150 q6 8 6 14" stroke="#2f9e44" stroke-width="7" stroke-linecap="round" fill="none"/>
-  <path d="M142 150 q6 8 14 8 M142 150 q0 10 4 14 M142 150 q-6 8 -6 14" stroke="#2f9e44" stroke-width="7" stroke-linecap="round" fill="none"/>
-  <ellipse cx="62" cy="140" rx="12" ry="14" fill="#40c057"/>
-  <ellipse cx="138" cy="140" rx="12" ry="14" fill="#40c057"/>
+  <path d="M70 116 C74 130 74 142 70 150" fill="none" stroke="#2b8a43" stroke-width="12" stroke-linecap="round"/>
+  <path d="M130 116 C126 130 126 142 130 150" fill="none" stroke="#2b8a43" stroke-width="12" stroke-linecap="round"/>
+  <g fill="#2b8a43"><circle cx="60" cy="154" r="4"/><circle cx="70" cy="155" r="4"/><circle cx="80" cy="154" r="4"/>
+  <circle cx="120" cy="154" r="4"/><circle cx="130" cy="155" r="4"/><circle cx="140" cy="154" r="4"/></g>
+  <!-- oczy -->
+  <circle cx="66" cy="50" r="22" fill="#2f9b4c"/>
+  <circle cx="134" cy="50" r="22" fill="#2f9b4c"/>
+  <circle cx="66" cy="48" r="15" fill="url(#iris)"/>
+  <circle cx="134" cy="48" r="15" fill="url(#iris)"/>
+  <ellipse cx="66" cy="48" rx="11" ry="4.5" fill="#14171d"/>
+  <ellipse cx="134" cy="48" rx="11" ry="4.5" fill="#14171d"/>
+  <circle cx="71" cy="43" r="2.5" fill="#fff" opacity=".85"/>
+  <circle cx="139" cy="43" r="2.5" fill="#fff" opacity=".85"/>
+  <!-- powieki -->
+  <path d="M46 44 C52 30 80 30 86 44" fill="none" stroke="#23783a" stroke-width="4" stroke-linecap="round"/>
+  <path d="M114 44 C120 30 148 30 154 44" fill="none" stroke="#23783a" stroke-width="4" stroke-linecap="round"/>
+  <!-- nozdrza i pysk -->
+  <circle cx="93" cy="72" r="2" fill="#14171d" opacity=".7"/>
+  <circle cx="107" cy="72" r="2" fill="#14171d" opacity=".7"/>
+  <path d="M62 84 C80 94 120 94 138 84" fill="none" stroke="#14171d" stroke-width="3" stroke-linecap="round" opacity=".75"/>
 </svg>

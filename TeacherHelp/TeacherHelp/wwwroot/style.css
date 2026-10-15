@@ -255,14 +255,10 @@ textarea:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 35%
 .survey-submit { min-height: 48px; font-size: 1.05rem; }
 .frog { display: block; width: 180px; max-width: 50vw; height: auto; margin: 0 auto 12px; }
 .frog-small { width: 96px; margin-bottom: 0; }
-.frog-wait { animation: frog-hop 1.6s ease-in-out infinite; }
-.frog-happy { animation: frog-hop .6s ease-out 3; }
-@keyframes frog-hop {
-  0%, 100% { transform: translateY(0) scale(1, 1); }
-  15% { transform: translateY(0) scale(1.08, .9); }
-  45% { transform: translateY(-28px) scale(.95, 1.06); }
-  75% { transform: translateY(0) scale(1.05, .94); }
-}
+.frog-wait { transform-origin: 50% 100%; animation: frog-breathe 3.2s ease-in-out infinite; }
+.frog-happy { animation: frog-hop .7s ease-out 1; }
+@keyframes frog-breathe { 50% { transform: scale(1.025, .985); } }
+@keyframes frog-hop { 40% { transform: translateY(-12px); } }
 
 /* Ankieta „Co kumam” – nauczyciel */
 .survey-create { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
