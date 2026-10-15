@@ -491,7 +491,7 @@ public sealed class SessionService
         return n.Length > MaxFileNameLength ? n[..MaxFileNameLength] : n;
     }
 
-    private static string CsvField(string value)
+    internal static string CsvField(string value)
     {
         // Ochrona przed wstrzykiwaniem formuł do Excela (imię i nazwisko wpisuje uczeń).
         if (value.Length > 0 && "=+-@\t\r".Contains(value[0])) value = "'" + value;

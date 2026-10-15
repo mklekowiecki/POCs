@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Co kumam?</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Co kumam?</h1>
+    <span id="status" class="status">Łączenie…</span>
+  </header>
+  <main>
+    <section id="waiting" class="center hidden">
+      <div class="spinner" aria-hidden="true"></div>
+      <h2>Poczekaj, aż nauczyciel otworzy ankietę</h2>
+      <p class="muted">Strona przełączy się sama.</p>
+    </section>
+
+    <section id="open" class="hidden">
+      <form id="survey-form" class="card survey-card">
+        <p id="mode-hint" class="survey-mode"></p>
+        <div id="name-row" class="survey-name hidden">
+          <label for="name">Imię i nazwisko</label>
+          <input id="name" maxlength="60" autocomplete="off">
+        </div>
+        <div id="questions" class="survey-questions"></div>
+        <label for="comment" class="survey-comment-label">Co jest dla Ciebie niejasne? <span class="muted">(opcjonalnie)</span></label>
+        <textarea id="comment" maxlength="500" rows="3"></textarea>
+        <button type="submit" id="submit" class="survey-submit">Wyślij</button>
+        <div id="submit-error" class="error"></div>
+      </form>
+    </section>
+
+    <section id="voted" class="center hidden">
+      <div class="done-badge" aria-hidden="true">✓</div>
+      <h2>Dziękujemy za odpowiedź!</h2>
+      <p class="muted">Możesz zamknąć tę stronę.</p>
+    </section>
+
+    <section id="closed" class="center hidden">
+      <div class="done-badge" aria-hidden="true">✓</div>
+      <h2>Dziękujemy, ankieta zakończona</h2>
+    </section>
+  </main>
+
+  <dialog id="confirm" class="confirm">
+    <form method="dialog" class="confirm-body">
+      <div class="confirm-badge" aria-hidden="true">?</div>
+      <h2>Wysłać odpowiedź?</h2>
+      <p class="muted">Po wysłaniu nie da się jej zmienić.</p>
+      <div class="confirm-actions">
+        <button type="submit" value="no" class="secondary">Jeszcze nie</button>
+        <button type="submit" id="confirm-yes" value="yes" class="success">Wyślij</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="lib/signalr.min.js"></script>
+  <script src="survey.js"></script>
+</body>
+</html>

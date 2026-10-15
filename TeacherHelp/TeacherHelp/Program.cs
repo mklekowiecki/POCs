@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -16,6 +17,11 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
     ContentRootPath = AppContext.BaseDirectory,
 });
 
+// Ankieta „Co kumam” ma osobny port: te same adresy co aplikacja, tylko z portem ankiety.
+// Pod IIS adresy ustawia się w powiązaniach witryny (deploy/Install-IIS.ps1).
+var surveyPort = builder.Configuration.GetValue("TeacherHelp:SurveyPort", 5001);
+builder.WebHost.UseUrls(WithSurveyPort(builder.Configuration[WebHostDefaults.ServerUrlsKey], surveyPort));
+
 const long maxUploadBytes = 200L * 1024 * 1024;
 const long maxImportBytes = 5L * 1024 * 1024;
 
@@ -23,6 +29,8 @@ builder.Services.AddSingleton<SessionService>();
 builder.Services.AddSingleton(new FileStorage(Path.Combine(Path.GetTempPath(), "TeacherHelp", "files")));
 builder.Services.Configure<FormOptions>(o => o.MultipartBodyLengthLimit = maxUploadBytes);
 builder.Services.AddHostedService<SessionNotifier>();
+builder.Services.AddSingleton<SurveyService>();
+builder.Services.AddHostedService<SurveyNotifier>();
 builder.Services.AddSignalR()
     .AddJsonProtocol(o => o.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services
@@ -44,6 +52,18 @@ var teacherPassword = app.Configuration["TeacherHelp:TeacherPassword"] ?? "";
 if (teacherPassword.Length == 0)
     app.Logger.LogWarning("Brak hasła nauczyciela (TeacherHelp:TeacherPassword) - logowanie do panelu będzie niemożliwe.");
 
+// Na porcie ankiety te same adresy prowadzą do stron ankiety (uczeń: „/”, nauczyciel: „/teacher.html”).
+app.Use((ctx, next) =>
+{
+    if (ctx.Connection.LocalPort == surveyPort)
+        ctx.Request.Path = ctx.Request.Path.Value switch
+        {
+            "/" or "/index.html" => "/survey.html",
+            "/teacher.html" => "/survey-teacher.html",
+            _ => ctx.Request.Path,
+        };
+    return next();
+});
 app.UseDefaultFiles();
 app.UseStaticFiles();
 app.UseAuthentication();
@@ -51,6 +71,8 @@ app.UseAuthorization();
 
 app.MapHub<StudentHub>("/hubs/student");
 app.MapHub<TeacherHub>("/hubs/teacher");
+app.MapHub<SurveyStudentHub>("/hubs/survey");
+app.MapHub<SurveyTeacherHub>("/hubs/survey-teacher");
 
 var teacher = app.MapGroup("/api/teacher");
 
@@ -157,6 +179,21 @@ secured.MapGet("/export.csv", (SessionService session) =>
     return Results.File(bytes, "text/csv; charset=utf-8", $"teacher-help-{DateTime.Now:yyyy-MM-dd-HHmm}.csv");
 });
 
+secured.MapPost("/survey/start", (SurveyStartRequest req, SurveyService survey) =>
+    survey.Start(req.Questions, req.Named)
+        ? Results.NoContent()
+        : Results.BadRequest($"Wpisz od 1 do {SurveyService.MaxQuestions} pytań."));
+
+secured.MapPost("/survey/close", (SurveyService survey) =>
+    survey.Close() ? Results.NoContent() : Results.Conflict("Brak otwartej ankiety."));
+
+secured.MapGet("/survey/export.csv", (SurveyService survey) =>
+{
+    if (survey.ExportCsv() is not { } csv) return Results.NotFound();
+    var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv)).ToArray();
+    return Results.File(bytes, "text/csv; charset=utf-8", $"co-kumam-{DateTime.Now:yyyy-MM-dd-HHmm}.csv");
+});
+
 // Pobieranie plików przez uczniów: dostępne, dopóki trwa sesja. Zawsze jako załącznik (nie otwieramy HTML w przeglądarce).
 app.MapGet("/api/files/{id}", (string id, SessionService session, FileStorage storage) =>
     session.GetFile(id) is { } file && storage.OpenRead(file.Id) is { } stream
@@ -167,6 +204,20 @@ app.Run();
 
 static bool PasswordMatches(string given, string expected) =>
     CryptographicOperations.FixedTimeEquals(SHA256.HashData(Encoding.UTF8.GetBytes(given)), SHA256.HashData(Encoding.UTF8.GetBytes(expected)));
+
+// "http://0.0.0.0:5000" → "http://0.0.0.0:5000;http://0.0.0.0:5001". Bierzemy tylko adresy http
+// (https z launchSettings na tym samym porcie co http dałby konflikt). Bez "Urls" – domyślny adres Kestrela.
+static string WithSurveyPort(string? urls, int surveyPort)
+{
+    var list = (string.IsNullOrWhiteSpace(urls) ? "http://localhost:5000" : urls)
+        .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+    var survey = list
+        .Where(u => u.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+        .Select(u => Regex.Replace(u.TrimEnd('/'), @":\d+$", $":{surveyPort}"))
+        .Where(u => !list.Contains(u, StringComparer.OrdinalIgnoreCase))
+        .Distinct(StringComparer.OrdinalIgnoreCase);
+    return string.Join(';', list.Concat(survey));
+}
 
 // Nasz eksport to UTF-8, ale plik zapisany ponownie w polskim Excelu bywa w Windows-1250.
 static string DecodeCsv(byte[] bytes)
@@ -184,5 +235,6 @@ static string DecodeCsv(byte[] bytes)
 record LoginRequest(string? Password);
 record StartRequest(int TaskCount);
 record TaskRequest(string? Title);
+record SurveyStartRequest(string?[]? Questions, bool Named);
 
 public partial class Program;

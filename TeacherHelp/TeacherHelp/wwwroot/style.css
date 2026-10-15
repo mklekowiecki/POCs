@@ -224,3 +224,81 @@ select { font: inherit; padding: 8px 10px; border: 1px solid var(--border); bord
   .spinner, .status.offline::before, .confirm[open], .confirm[open]::backdrop { animation: none; }
   .tile, .tile .check, .progress-bar span { transition: none; }
 }
+
+/* Ankieta „Co kumam” – uczeń */
+textarea {
+  font: inherit; font-size: 1rem; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface); color: var(--text); width: 100%; resize: vertical;
+}
+textarea:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 35%, transparent); border-color: var(--accent); }
+.survey-card { max-width: 720px; margin: 0 auto; padding: 24px; display: flex; flex-direction: column; gap: 14px; }
+.survey-mode { margin: 0; padding: 8px 12px; border-radius: 8px; background: var(--bar-bg); font-size: .95rem; }
+.survey-name { display: flex; flex-direction: column; gap: 6px; font-weight: 600; }
+.survey-questions { display: flex; flex-direction: column; gap: 14px; }
+.survey-question { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px 14px; margin: 0; min-width: 0; }
+.survey-question legend { font-weight: 700; font-size: 1.1rem; padding: 0 6px; overflow-wrap: anywhere; }
+.scale { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.scale input { position: absolute; opacity: 0; pointer-events: none; }
+.scale label {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 4px; min-height: 92px;
+  border: 2px solid var(--border); border-radius: 12px; cursor: pointer; text-align: center;
+  transition: border-color .15s, background-color .15s, transform .1s;
+}
+.scale label:hover { border-color: var(--accent); }
+.scale .emoji { font-size: 1.8rem; line-height: 1.1; }
+.scale .num { font-weight: 700; font-size: 1.1rem; }
+.scale .text { font-size: .75rem; color: var(--muted); line-height: 1.2; }
+.scale input:checked + label { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); transform: scale(1.04); }
+.scale input:focus-visible + label { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
+@media (max-width: 480px) { .scale .text { display: none; } .scale label { min-height: 70px; } }
+.survey-comment-label { font-weight: 600; }
+.survey-submit { min-height: 48px; font-size: 1.05rem; }
+.done-badge {
+  display: grid; place-items: center; width: 80px; height: 80px; margin: 0 auto 16px; border-radius: 50%;
+  background: var(--done-bg); color: var(--done); font-size: 2.4rem; font-weight: 700;
+}
+
+/* Ankieta „Co kumam” – nauczyciel */
+.survey-create { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+.survey-create h2 { margin: 0; }
+.survey-create p { margin: 0; }
+.question-list { margin: 0; padding-left: 1.6em; display: flex; flex-direction: column; gap: 8px; }
+.question-list li { display: flex; gap: 8px; align-items: center; }
+.question-list li::marker { color: var(--muted); }
+.question-list input { flex: 1; min-width: 0; }
+#add-question { align-self: flex-start; }
+.mode { border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px 12px; display: flex; gap: 18px; flex-wrap: wrap; }
+.mode label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.create-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.state-badge { font-weight: 700; color: var(--muted); }
+.state-badge.open { color: var(--done); }
+.survey-summary { font-variant-numeric: tabular-nums; }
+.question-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.question-stat { padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.question-stat .head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+.question-stat .label { font-weight: 700; overflow-wrap: anywhere; }
+.question-stat .avg { font-size: 1.8rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.avg.low { color: var(--danger); }
+.avg.mid { color: #c98a00; }
+.avg.high { color: var(--done); }
+.dist-row { display: grid; grid-template-columns: 3.2em 1fr 5.5em; align-items: center; gap: 8px; font-size: .9rem; }
+.dist-label { white-space: nowrap; }
+.dist-bar { height: 14px; background: var(--bar-bg); border-radius: 999px; overflow: hidden; }
+.dist-bar span { display: block; height: 100%; background: var(--accent); border-radius: 999px; transition: width .3s; }
+.dist-row.r1 .dist-bar span, .dist-row.r2 .dist-bar span { background: var(--danger); }
+.dist-row.r3 .dist-bar span { background: #d9a020; }
+.dist-row.r4 .dist-bar span, .dist-row.r5 .dist-bar span { background: var(--done); }
+.dist-count { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.comments-panel { margin-bottom: 16px; }
+.comments-panel h3 { margin: 0 0 8px; font-size: 1rem; }
+.comments { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.comments li { padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--bg); border-radius: 4px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.comments li.empty { border-left-color: var(--border); }
+td.rating { font-weight: 700; font-variant-numeric: tabular-nums; }
+td.rating.r1, td.rating.r2 { color: var(--danger); }
+td.rating.r4, td.rating.r5 { color: var(--done); }
+th.comment, td.comment { text-align: left; white-space: normal; min-width: 240px; overflow-wrap: anywhere; }
+@media (prefers-reduced-motion: reduce) {
+  .scale label, .dist-bar span { transition: none; }
+  .scale input:checked + label { transform: none; }
+}
