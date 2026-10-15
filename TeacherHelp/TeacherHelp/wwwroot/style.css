@@ -253,9 +253,15 @@ textarea:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 35%
 @media (max-width: 480px) { .scale .text { display: none; } .scale label { min-height: 70px; } }
 .survey-comment-label { font-weight: 600; }
 .survey-submit { min-height: 48px; font-size: 1.05rem; }
-.done-badge {
-  display: grid; place-items: center; width: 80px; height: 80px; margin: 0 auto 16px; border-radius: 50%;
-  background: var(--done-bg); color: var(--done); font-size: 2.4rem; font-weight: 700;
+.frog { display: block; width: 180px; max-width: 50vw; height: auto; margin: 0 auto 12px; }
+.frog-small { width: 96px; margin-bottom: 0; }
+.frog-wait { animation: frog-hop 1.6s ease-in-out infinite; }
+.frog-happy { animation: frog-hop .6s ease-out 3; }
+@keyframes frog-hop {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  15% { transform: translateY(0) scale(1.08, .9); }
+  45% { transform: translateY(-28px) scale(.95, 1.06); }
+  75% { transform: translateY(0) scale(1.05, .94); }
 }
 
 /* Ankieta „Co kumam” – nauczyciel */
@@ -300,5 +306,6 @@ td.rating.r4, td.rating.r5 { color: var(--done); }
 th.comment, td.comment { text-align: left; white-space: normal; min-width: 240px; overflow-wrap: anywhere; }
 @media (prefers-reduced-motion: reduce) {
   .scale label, .dist-bar span { transition: none; }
+  .frog-wait, .frog-happy { animation: none; }
   .scale input:checked + label { transform: none; }
 }

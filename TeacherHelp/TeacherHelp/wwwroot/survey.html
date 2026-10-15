@@ -13,13 +13,14 @@
   </header>
   <main>
     <section id="waiting" class="center hidden">
-      <div class="spinner" aria-hidden="true"></div>
+      <img src="frog.svg" alt="" class="frog frog-wait">
       <h2>Poczekaj, aż nauczyciel otworzy ankietę</h2>
       <p class="muted">Strona przełączy się sama.</p>
     </section>
 
     <section id="open" class="hidden">
       <form id="survey-form" class="card survey-card">
+        <img src="frog.svg" alt="" class="frog frog-small">
         <p id="mode-hint" class="survey-mode"></p>
         <div id="name-row" class="survey-name hidden">
           <label for="name">Imię i nazwisko</label>
@@ -34,13 +35,13 @@
     </section>
 
     <section id="voted" class="center hidden">
-      <div class="done-badge" aria-hidden="true">✓</div>
+      <img src="frog.svg" alt="" class="frog frog-happy">
       <h2>Dziękujemy za odpowiedź!</h2>
       <p class="muted">Możesz zamknąć tę stronę.</p>
     </section>
 
     <section id="closed" class="center hidden">
-      <div class="done-badge" aria-hidden="true">✓</div>
+      <img src="frog.svg" alt="" class="frog">
       <h2>Dziękujemy, ankieta zakończona</h2>
     </section>
   </main>

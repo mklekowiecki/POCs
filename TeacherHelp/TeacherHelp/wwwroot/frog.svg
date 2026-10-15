@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 170" role="img" aria-label="Zielona żaba">
+  <!-- tylne łapy -->
+  <ellipse cx="38" cy="148" rx="34" ry="14" fill="#2f9e44"/>
+  <ellipse cx="162" cy="148" rx="34" ry="14" fill="#2f9e44"/>
+  <!-- ciało -->
+  <ellipse cx="100" cy="112" rx="72" ry="50" fill="#40c057"/>
+  <ellipse cx="100" cy="128" rx="44" ry="28" fill="#b2f2bb"/>
+  <!-- głowa -->
+  <ellipse cx="100" cy="78" rx="64" ry="40" fill="#40c057"/>
+  <!-- oczy -->
+  <circle cx="66" cy="44" r="24" fill="#40c057"/>
+  <circle cx="134" cy="44" r="24" fill="#40c057"/>
+  <circle cx="66" cy="42" r="16" fill="#fff"/>
+  <circle cx="134" cy="42" r="16" fill="#fff"/>
+  <circle cx="70" cy="44" r="8" fill="#1d2330"/>
+  <circle cx="130" cy="44" r="8" fill="#1d2330"/>
+  <circle cx="73" cy="40" r="3" fill="#fff"/>
+  <circle cx="133" cy="40" r="3" fill="#fff"/>
+  <!-- policzki i uśmiech -->
+  <ellipse cx="52" cy="88" rx="10" ry="6" fill="#ff8fa3" opacity=".7"/>
+  <ellipse cx="148" cy="88" rx="10" ry="6" fill="#ff8fa3" opacity=".7"/>
+  <path d="M70 86 Q100 112 130 86" fill="none" stroke="#1d2330" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="90" cy="70" r="2.5" fill="#1d2330"/>
+  <circle cx="110" cy="70" r="2.5" fill="#1d2330"/>
+  <!-- przednie łapy -->
+  <path d="M58 150 q-6 8 -14 8 M58 150 q0 10 -4 14 M58 150 q6 8 6 14" stroke="#2f9e44" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <path d="M142 150 q6 8 14 8 M142 150 q0 10 4 14 M142 150 q-6 8 -6 14" stroke="#2f9e44" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <ellipse cx="62" cy="140" rx="12" ry="14" fill="#40c057"/>
+  <ellipse cx="138" cy="140" rx="12" ry="14" fill="#40c057"/>
+</svg>
