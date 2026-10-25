@@ -382,6 +382,7 @@ th.comment, td.comment { text-align: left; white-space: normal; min-width: 240px
 .mini-resistor { display: flex; gap: 4px; padding: 3px 8px; border-radius: 6px; background: #e3c9a0; }
 .mini-resistor i { width: 5px; height: 16px; border-radius: 1px; }
 .mini-bulb { font-size: 1.2rem; line-height: 1; }
+.el-ohms { margin-top: -4px; font-weight: 500; font-size: .85rem; color: var(--muted); }
 .volt-row { display: flex; align-items: center; gap: 12px; }
 .volt-row input { flex: 1; min-width: 0; padding: 0; border: 0; accent-color: var(--accent); }
 .volt-value { font-size: 1.5rem; font-weight: 800; font-variant-numeric: tabular-nums; min-width: 4.2em; text-align: right; }

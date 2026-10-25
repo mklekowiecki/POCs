@@ -15,15 +15,16 @@ const AMMETER_MAX = 1;       // [A] powyżej amperomierz się pali
 const SHORT_CURRENT = 2;     // [A] prąd baterii uznawany za zwarcie (najmniejszy opornik daje < 1 A)
 
 // Wartości rzeczywiste lekko odbiegają od nominalnych (15/33/68/150 Ω), jak w prawdziwych opornikach.
-// Wartości nie są nigdzie pokazane – uczeń może je policzyć w arkuszu z U/I.
+// Pokazujemy tylko wartość nominalną – rzeczywistą uczeń może policzyć w arkuszu z U/I.
 const BAND = { black: "#1b1b1b", brown: "#7a4a21", orange: "#e8740c", green: "#2f9e44", blue: "#2563eb", grey: "#8a8f98" };
 const ELEMENTS = {
-  r1: { name: "Opornik 1", ohms: 15.3, bands: [BAND.brown, BAND.green, BAND.black] },
-  r2: { name: "Opornik 2", ohms: 32.6, bands: [BAND.orange, BAND.orange, BAND.black] },
-  r3: { name: "Opornik 3", ohms: 68.9, bands: [BAND.blue, BAND.grey, BAND.black] },
-  r4: { name: "Opornik 4", ohms: 148.2, bands: [BAND.brown, BAND.green, BAND.brown] },
+  r1: { name: "Opornik 1", nominal: 15, ohms: 15.3, bands: [BAND.brown, BAND.green, BAND.black] },
+  r2: { name: "Opornik 2", nominal: 33, ohms: 32.6, bands: [BAND.orange, BAND.orange, BAND.black] },
+  r3: { name: "Opornik 3", nominal: 68, ohms: 68.9, bands: [BAND.blue, BAND.grey, BAND.black] },
+  r4: { name: "Opornik 4", nominal: 150, ohms: 148.2, bands: [BAND.brown, BAND.green, BAND.brown] },
   bulb: { name: "Żarówka" },
 };
+const elementLabel = def => def.nominal ? `${def.name} – ${def.nominal} Ω` : def.name;
 
 // Żarówka 12 V / 0,5 A: opór rośnie z napięciem (I ~ U^0,55), na zimno ok. 2,5 Ω.
 const BULB = { volts: 12, hotOhms: 24, coldOhms: 2.5, exp: 0.45, watts: 6 };
@@ -227,7 +228,7 @@ function renderElement(result) {
   $("bulb").classList.toggle("hidden", !isBulb);
   $("lead-el").setAttribute("d", isBulb ? LEADS.bulb : LEADS.resistor);
   $("flow-el").setAttribute("d", isBulb ? LEADS.bulb : LEADS.resistor);
-  $("el-name").textContent = ELEMENTS[state.element].name;
+  $("el-name").textContent = elementLabel(ELEMENTS[state.element]);
   if (isBulb) {
     const b = Math.min(1, Math.max(0, result.elementWatts / BULB.watts));
     $("bulb-glow").setAttribute("opacity", Math.pow(b, 0.6).toFixed(3));
@@ -243,6 +244,11 @@ function renderHints(result) {
   const short = !state.burned && Math.abs(result.batteryAmps) > SHORT_CURRENT;
   if (state.burned) hints.push("🔥 Amperomierz jest spalony – wymień go, żeby mierzyć natężenie.");
   if (short) hints.push("⚠ Zwarcie baterii! Prąd płynie z pominięciem opornika – usuń przewód.");
+  // Szeregowo: przez element płynie ten sam znikomy prąd co przez woltomierz (równolegle byłby dużo większy).
+  const vmAmps = Math.abs(result.volts) / R_VOLTMETER;
+  if (vmAmps > 1e-8 && Math.abs(result.elementAmps) > 0.5 * vmAmps && Math.abs(result.elementAmps) < 2 * vmAmps)
+    hints.push("Woltomierz jest podłączony szeregowo – ma ogromny opór, więc prąd prawie nie płynie, a miernik " +
+      "pokazuje napięcie baterii. Woltomierz podłącza się równolegle do badanego elementu.");
   if (result.volts < -0.01) hints.push("Woltomierz pokazuje minus – przewody przy + i COM są zamienione.");
   if (result.amps < -0.001) hints.push("Amperomierz pokazuje minus – przewody przy + i COM są zamienione.");
   $("hints").replaceChildren(...hints.map(h => Object.assign(document.createElement("li"), { textContent: h })));
@@ -433,6 +439,7 @@ function renderElementChoices() {
       icon.textContent = "💡";
     }
     label.append(icon, document.createTextNode(def.name));
+    if (def.nominal) label.append(Object.assign(document.createElement("span"), { className: "el-ohms", textContent: `${def.nominal} Ω` }));
     return [input, label];
   }));
 }
