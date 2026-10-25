@@ -7,9 +7,9 @@
       1. włącza potrzebne funkcje IIS (w tym WebSockets dla SignalR),
       2. instaluje ASP.NET Core Hosting Bundle (.NET 10), jeśli go brakuje,
       3. publikuje aplikację z kodu źródłowego (wymaga .NET SDK) albo bierze gotowy folder -PublishPath,
-      4. tworzy pulę aplikacji i witrynę IIS (port lekcji + port ankiety „Co kumam”) oraz kopiuje pliki,
-      5. zapisuje hasło nauczyciela i port ankiety w appsettings.Production.json,
-      6. otwiera oba porty w zaporze Windows dla sieci lokalnej.
+      4. tworzy pulę aplikacji i witrynę IIS (jeden port – wszystkie aplikacje to podstrony) oraz kopiuje pliki,
+      5. zapisuje hasło nauczyciela w appsettings.Production.json,
+      6. otwiera port w zaporze Windows dla sieci lokalnej.
 
     Uruchomienie ponownie aktualizuje aplikację: pliki są podmieniane, hasło zostaje (chyba że podasz nowe).
 
@@ -25,10 +25,6 @@
     .\Install-IIS.ps1 -Port 5000 -TeacherPassword "tajne"
 
 .EXAMPLE
-    .\Install-IIS.ps1 -SurveyPort 8081
-    Ankieta „Co kumam” na porcie 8081 zamiast domyślnego 5001.
-
-.EXAMPLE
     .\Install-IIS.ps1 -PublishPath D:\paczka
     Instalacja z gotowego wyniku „dotnet publish” (na komputerze bez .NET SDK).
 
@@ -41,8 +37,6 @@ param(
     [string]$SiteName = "LekcjaInformatyki",
     [ValidateRange(1, 65535)]
     [int]$Port = 80,
-    [ValidateRange(1, 65535)]
-    [int]$SurveyPort = 5001,
     [string]$InstallPath = "$env:SystemDrive\inetpub\LekcjaInformatyki",
     [string]$TeacherPassword,
     [string]$PublishPath,
@@ -170,9 +164,7 @@ if ($Uninstall) {
     return
 }
 
-if ($SurveyPort -eq $Port) { throw "Port ankiety (-SurveyPort) musi być inny niż port lekcji (-Port)." }
 Assert-PortFree $Port
-Assert-PortFree $SurveyPort
 $source = Get-PublishedApp
 
 $settingsFile = Join-Path $InstallPath "appsettings.Production.json"
@@ -199,28 +191,26 @@ New-Item -ItemType Directory -Path $InstallPath -Force | Out-Null
 & robocopy $source $InstallPath /MIR /XF appsettings.Production.json /XD logs /NFL /NDL /NJH /NJS /NP | Out-Null
 if ($LASTEXITCODE -ge 8) { throw "robocopy zakończył się błędem ($LASTEXITCODE)." }
 
-# Port ankiety zapisujemy zawsze (aplikacja po nim rozpoznaje strony ankiety); hasło – nowe albo dotychczasowe.
+# Hasło – nowe albo dotychczasowe (stary klucz SurveyPort z poprzednich wersji przy okazji znika).
 $existing = if (Test-Path $settingsFile) { Get-Content $settingsFile -Raw | ConvertFrom-Json } else { $null }
 $password = if ($TeacherPassword) { $TeacherPassword } else { $existing.TeacherHelp.TeacherPassword }
-@{ TeacherHelp = @{ TeacherPassword = $password; SurveyPort = $SurveyPort } } | ConvertTo-Json | Set-Content -Path $settingsFile -Encoding UTF8
+@{ TeacherHelp = @{ TeacherPassword = $password } } | ConvertTo-Json | Set-Content -Path $settingsFile -Encoding UTF8
 if ($TeacherPassword) { Write-Host "    Zapisano hasło nauczyciela." }
 & icacls $InstallPath /grant "IIS AppPool\${SiteName}:(OI)(CI)RX" /T /Q | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "Nie udało się nadać uprawnień puli aplikacji do $InstallPath." }
 
-Write-Step "Witryna '$SiteName' na portach $Port (lekcja) i $SurveyPort (ankieta)"
+Write-Step "Witryna '$SiteName' na porcie $Port"
 if (-not (Test-Path "IIS:\Sites\$SiteName")) {
     New-Website -Name $SiteName -Port $Port -PhysicalPath $InstallPath -ApplicationPool $SiteName | Out-Null
 }
 Set-ItemProperty "IIS:\Sites\$SiteName" -Name physicalPath -Value $InstallPath
 Set-ItemProperty "IIS:\Sites\$SiteName" -Name applicationPool -Value $SiteName
-Set-ItemProperty "IIS:\Sites\$SiteName" -Name bindings -Value @(
-    @{ protocol = "http"; bindingInformation = "*:${Port}:" },
-    @{ protocol = "http"; bindingInformation = "*:${SurveyPort}:" })
+Set-ItemProperty "IIS:\Sites\$SiteName" -Name bindings -Value @(@{ protocol = "http"; bindingInformation = "*:${Port}:" })
 
-Write-Step "Zapora Windows: porty $Port i $SurveyPort dla sieci lokalnej"
+Write-Step "Zapora Windows: port $Port dla sieci lokalnej"
 Remove-NetFirewallRule -Name $FirewallRuleName -ErrorAction SilentlyContinue
-New-NetFirewallRule -Name $FirewallRuleName -DisplayName "Lekcja Informatyki (HTTP $Port, $SurveyPort)" `
-    -Direction Inbound -Protocol TCP -LocalPort $Port, $SurveyPort -RemoteAddress LocalSubnet -Action Allow | Out-Null
+New-NetFirewallRule -Name $FirewallRuleName -DisplayName "Lekcja Informatyki (HTTP $Port)" `
+    -Direction Inbound -Protocol TCP -LocalPort $Port -RemoteAddress LocalSubnet -Action Allow | Out-Null
 
 Write-Step "Uruchamianie"
 Start-WebAppPool -Name $SiteName
@@ -238,7 +228,7 @@ catch {
 
 Write-Host ""
 Write-Host "Gotowe!" -ForegroundColor Green
-Write-Host "  Panel nauczyciela: http://localhost$suffix/teacher.html"
-foreach ($ip in Get-LanAddresses) { Write-Host "  Uczniowie:         http://$ip$suffix/" }
-Write-Host "  Ankieta „Co kumam” – nauczyciel: http://localhost:$SurveyPort/teacher.html"
-foreach ($ip in Get-LanAddresses) { Write-Host "  Ankieta – uczniowie:            http://${ip}:$SurveyPort/" }
+Write-Host "  Panel nauczyciela: http://localhost$suffix/nauczyciel"
+foreach ($ip in Get-LanAddresses) {
+    Write-Host "  Uczniowie:         http://$ip$suffix/  (ankieta: /ankieta, obwód: /obwod)"
+}

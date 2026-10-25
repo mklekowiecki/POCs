@@ -9,8 +9,10 @@
 <body>
   <header>
     <h1>Lekcja Informatyki – panel nauczyciela</h1>
-    <span id="status" class="status"></span>
-    <button id="logout" class="secondary hidden" type="button">Wyloguj</button>
+    <div class="header-right">
+      <span id="status" class="status"></span>
+      <button id="logout" class="secondary hidden" type="button">Wyloguj</button>
+    </div>
   </header>
   <main>
     <section id="login" class="center hidden">
@@ -24,59 +26,152 @@
       </div>
     </section>
 
-    <section id="idle" class="center hidden">
-      <div class="card" style="display:inline-block">
-        <h2>Nowa sesja</h2>
-        <form id="start-form" class="inline">
-          <label for="task-count">Liczba zadań</label>
-          <input id="task-count" type="number" min="1" max="200" value="5" required style="width:6em">
-          <button type="submit">Rozpocznij</button>
-        </form>
-        <div id="start-error" class="error"></div>
-        <h2 class="import">Wznów sesję z pliku</h2>
-        <form id="import-form" class="inline">
-          <input id="import-input" type="file" accept=".csv,text/csv" required>
-          <button type="submit">Wznów</button>
-        </form>
-        <p class="muted">Plik z „Eksport CSV”. Uczniowie po wejściu wybiorą siebie z listy.</p>
-        <div id="import-error" class="error"></div>
-      </div>
+    <!-- Wybór aplikacji -->
+    <section id="launcher" class="hidden">
+      <h2 class="launcher-title">Wybierz aplikację</h2>
+      <nav class="app-tiles">
+        <a href="#lekcja" class="app-tile">
+          <span class="app-icon" aria-hidden="true">📋</span>
+          <span class="app-name">Lekcja</span>
+          <span class="app-desc">Zadania do odhaczania, postęp uczniów i pliki do pobrania</span>
+          <span id="tile-info-lekcja" class="app-info"></span>
+        </a>
+        <a href="#ankieta" class="app-tile">
+          <span class="app-icon" aria-hidden="true">🐸</span>
+          <span class="app-name">Co kumam?</span>
+          <span class="app-desc">Ankieta na koniec lekcji – uczniowie oceniają tematy w skali 1–5</span>
+          <span id="tile-info-ankieta" class="app-info"></span>
+        </a>
+        <a href="#obwod" class="app-tile">
+          <span class="app-icon" aria-hidden="true">💡</span>
+          <span class="app-name">Obwód elektryczny</span>
+          <span class="app-desc">Symulator do mierzenia napięcia i natężenia – dane do arkusza kalkulacyjnego</span>
+          <span id="tile-info-obwod" class="app-info">Działa bez sesji – wystarczy podać adres</span>
+        </a>
+      </nav>
+      <p class="muted launcher-hint">Aplikacje działają niezależnie – lekcja i ankieta mogą trwać jednocześnie.</p>
     </section>
 
-    <section id="session" class="hidden">
-      <div class="toolbar">
-        <form id="add-form" class="inline">
-          <input id="add-title" maxlength="100" placeholder="Tytuł nowego zadania (opcjonalnie)">
-          <button type="submit">Dodaj zadanie</button>
+    <!-- Pasek aplikacji: powrót do wyboru i adres dla uczniów -->
+    <div id="app-bar" class="app-bar hidden">
+      <a href="#" class="app-back">← Aplikacje</a>
+      <h2 id="app-title"></h2>
+      <span class="spacer"></span>
+      <span class="app-address">Uczniowie: <span id="app-address"></span></span>
+    </div>
+
+    <!-- Aplikacja: Lekcja -->
+    <section id="app-lesson" class="hidden">
+      <section id="idle" class="center hidden">
+        <div class="card" style="display:inline-block">
+          <h2>Nowa sesja</h2>
+          <form id="start-form" class="inline">
+            <label for="task-count">Liczba zadań</label>
+            <input id="task-count" type="number" min="1" max="200" value="5" required style="width:6em">
+            <button type="submit">Rozpocznij</button>
+          </form>
+          <div id="start-error" class="error"></div>
+          <h2 class="import">Wznów sesję z pliku</h2>
+          <form id="import-form" class="inline">
+            <input id="import-input" type="file" accept=".csv,text/csv" required>
+            <button type="submit">Wznów</button>
+          </form>
+          <p class="muted">Plik z „Eksport CSV”. Uczniowie po wejściu wybiorą siebie z listy.</p>
+          <div id="import-error" class="error"></div>
+        </div>
+      </section>
+
+      <section id="session" class="hidden">
+        <div class="toolbar">
+          <form id="add-form" class="inline">
+            <input id="add-title" maxlength="100" placeholder="Tytuł nowego zadania (opcjonalnie)">
+            <button type="submit">Dodaj zadanie</button>
+          </form>
+          <span class="spacer"></span>
+          <span id="lesson-summary" class="muted"></span>
+          <button id="lesson-export" type="button" class="secondary">Eksport CSV</button>
+          <button id="end" type="button" class="danger">Zakończ sesję</button>
+        </div>
+        <details id="files-panel" class="files-panel">
+          <summary>Pliki dla uczniów (<span id="files-count">0</span>)</summary>
+          <form id="upload-form" class="inline upload">
+            <input id="upload-input" type="file" multiple required>
+            <label for="upload-task">do</label>
+            <select id="upload-task"></select>
+            <button type="submit">Udostępnij</button>
+          </form>
+          <div id="upload-error" class="error"></div>
+          <ul id="files-list" class="files teacher-files"></ul>
+        </details>
+        <div id="stats" class="stats"></div>
+        <div class="table-wrap">
+          <table>
+            <thead id="lesson-thead"></thead>
+            <tbody id="lesson-tbody"></tbody>
+          </table>
+        </div>
+        <p class="muted">Kliknij nagłówek zadania, aby zmienić tytuł. Procent liczony od wszystkich uczniów sesji.
+          „Odłącz” zwalnia ucznia od komputera (postęp zostaje) – może wtedy wybrać siebie z listy na innym.</p>
+      </section>
+    </section>
+
+    <!-- Aplikacja: Co kumam? -->
+    <section id="app-survey" class="hidden">
+      <section id="create" class="hidden">
+        <form id="create-form" class="card survey-create">
+          <h2>Nowa ankieta</h2>
+          <p class="muted">Pytania, które uczniowie ocenią w skali 1–5 (np. „pętla for”, „tablice”).</p>
+          <ol id="question-list" class="question-list"></ol>
+          <button type="button" id="add-question" class="secondary">+ Dodaj pytanie</button>
+          <fieldset class="mode">
+            <legend>Tryb</legend>
+            <label><input type="radio" name="mode" value="anonymous" checked> Anonimowa</label>
+            <label><input type="radio" name="mode" value="named"> Imienna (uczeń wpisuje imię)</label>
+          </fieldset>
+          <div class="create-actions">
+            <button type="button" id="cancel-create" class="secondary hidden">Anuluj</button>
+            <button type="submit">Rozpocznij ankietę</button>
+          </div>
+          <div id="create-error" class="error"></div>
         </form>
-        <span class="spacer"></span>
-        <span id="summary" class="muted"></span>
-        <button id="export" type="button" class="secondary">Eksport CSV</button>
-        <button id="end" type="button" class="danger">Zakończ sesję</button>
+      </section>
+
+      <section id="results" class="hidden">
+        <div class="toolbar">
+          <span id="state-badge" class="state-badge"></span>
+          <span id="survey-summary" class="survey-summary"></span>
+          <span class="spacer"></span>
+          <button id="survey-export" type="button" class="secondary">Eksport CSV</button>
+          <button id="new-survey" type="button" class="secondary">Nowa ankieta</button>
+          <button id="survey-close" type="button" class="danger">Zamknij ankietę</button>
+        </div>
+        <div id="question-stats" class="question-stats"></div>
+        <div id="comments-panel" class="card comments-panel">
+          <h3>Co jest niejasne? <span id="comments-count" class="muted"></span></h3>
+          <ul id="comments" class="comments"></ul>
+        </div>
+        <div id="responses-panel" class="table-wrap hidden">
+          <table>
+            <thead id="survey-thead"></thead>
+            <tbody id="survey-tbody"></tbody>
+          </table>
+        </div>
+        <p class="muted">„Otwarte strony” to przeglądarki uczniów, które mają teraz otwartą ankietę.</p>
+      </section>
+    </section>
+
+    <!-- Aplikacja: Obwód elektryczny -->
+    <section id="app-circuit" class="hidden">
+      <div class="card circuit-info">
+        <p>Symulator działa w całości w przeglądarce ucznia – nie trzeba rozpoczynać sesji.
+          Uczeń łączy przewodami baterię, opornik lub żarówkę, woltomierz i amperomierz, a odczyty
+          wpisuje do arkusza kalkulacyjnego.</p>
+        <p class="muted">Stan obwodu zapisuje się w przeglądarce ucznia, więc zamknięcie karty go nie gubi.</p>
+        <a href="obwod" target="_blank" rel="noopener" class="button-link">Otwórz symulator</a>
       </div>
-      <details id="files-panel" class="files-panel">
-        <summary>Pliki dla uczniów (<span id="files-count">0</span>)</summary>
-        <form id="upload-form" class="inline upload">
-          <input id="upload-input" type="file" multiple required>
-          <label for="upload-task">do</label>
-          <select id="upload-task"></select>
-          <button type="submit">Udostępnij</button>
-        </form>
-        <div id="upload-error" class="error"></div>
-        <ul id="files-list" class="files teacher-files"></ul>
-      </details>
-      <div id="stats" class="stats"></div>
-      <div class="table-wrap">
-        <table>
-          <thead id="thead"></thead>
-          <tbody id="tbody"></tbody>
-        </table>
-      </div>
-      <p class="muted">Kliknij nagłówek zadania, aby zmienić tytuł. Procent liczony od wszystkich uczniów sesji.
-        „Odłącz” zwalnia ucznia od komputera (postęp zostaje) – może wtedy wybrać siebie z listy na innym.</p>
     </section>
   </main>
   <script src="lib/signalr.min.js"></script>
-  <script src="teacher.js"></script>
+  <script type="module" src="teacher.js"></script>
 </body>
 </html>

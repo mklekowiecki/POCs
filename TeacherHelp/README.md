@@ -14,19 +14,22 @@ cd TeacherHelp/TeacherHelp
 dotnet run
 ```
 
-Serwer nasłuchuje na `http://0.0.0.0:5000` (wszystkie interfejsy, port 5000), a ankieta „Co kumam”
-na tych samych adresach z portem 5001.
+Serwer nasłuchuje na `http://0.0.0.0:80` (wszystkie interfejsy, port 80) – wszystkie aplikacje są
+podstronami tego samego adresu, więc uczniowie wpisują sam adres komputera nauczyciela.
 
-| Kto                    | Adres                                     |
-|------------------------|-------------------------------------------|
-| Uczniowie              | `http://<IP-komputera-nauczyciela>:5000/` |
-| Nauczyciel             | `http://localhost:5000/teacher.html`      |
-| Ankieta – uczniowie    | `http://<IP-komputera-nauczyciela>:5001/` |
-| Ankieta – nauczyciel   | `http://localhost:5001/teacher.html`      |
-| Symulator obwodu       | `http://<IP-komputera-nauczyciela>:5000/obwod.html` |
+| Kto                         | Adres                                        |
+|-----------------------------|----------------------------------------------|
+| Nauczyciel (cały panel)     | `http://localhost/nauczyciel`                |
+| Uczniowie – lekcja          | `http://<IP-komputera-nauczyciela>/`         |
+| Uczniowie – ankieta         | `http://<IP-komputera-nauczyciela>/ankieta`  |
+| Uczniowie – symulator       | `http://<IP-komputera-nauczyciela>/obwod`    |
 
+Panel nauczyciela sam pokazuje adresy dla uczniów (z adresami kart sieciowych komputera) przy każdej aplikacji.
 Strony ucznia i nauczyciela są podpisane „Lekcja Informatyki” (nagłówki i tytuły kart w `wwwroot/index.html` i `wwwroot/teacher.html`).
-Port ankiety zmienia się w `TeacherHelp:SurveyPort` (np. `dotnet run -- --TeacherHelp:SurveyPort=8081`).
+Inny port: `"Urls": "http://0.0.0.0:5000"` w `appsettings.json` albo `dotnet run -- --urls http://0.0.0.0:5000`
+(np. gdy port 80 zajmuje już IIS lub inny serwer – wtedy aplikacja nie wystartuje z błędem „address already in use”).
+Uwaga: `dotnet run` bierze adres z profilu w `launchSettings.json` (`applicationUrl`), jeśli go masz –
+żeby uruchomić na porcie 80, użyj `dotnet run --no-launch-profile`.
 
 Hasło nauczyciela ustawia się w `TeacherHelp/appsettings.json` → `TeacherHelp:TeacherPassword`
 (domyślnie `zmien-to-haslo` – **zmień je**). Można je też podać bez edycji pliku:
@@ -46,12 +49,12 @@ Hasło zmienia się wtedy w `appsettings.json` leżącym obok exe.
 
 ### Zapora sieciowa
 
-Na komputerze nauczyciela trzeba zezwolić na połączenia przychodzące na porty 5000 i 5001 – inaczej strona
+Na komputerze nauczyciela trzeba zezwolić na połączenia przychodzące na port 80 – inaczej strona
 działa pod `localhost`, ale uczniowie jej nie widzą. Najprościej przy pierwszym uruchomieniu kliknąć
 „Zezwalaj” w oknie Zapory Windows, albo (PowerShell jako administrator):
 
 ```powershell
-New-NetFirewallRule -DisplayName "Teacher Help" -Direction Inbound -Protocol TCP -LocalPort 5000,5001 -Action Allow -Profile Private,Domain
+New-NetFirewallRule -DisplayName "Teacher Help" -Direction Inbound -Protocol TCP -LocalPort 80 -Action Allow -Profile Private,Domain
 ```
 
 Testy: `dotnet test` w katalogu `TeacherHelp/`.
@@ -114,9 +117,8 @@ Testy: `dotnet test` w katalogu `TeacherHelp/`.
   a imię i nazwisko się zwalniają; postęp jest tracony.
 
 **Ankieta „Co kumam” (feedback na koniec lekcji)**
-- Osobne wejście do tej samej aplikacji, na osobnym porcie (domyślnie 5001): uczniowie wchodzą na
-  `http://<IP-komputera-nauczyciela>:5001/`, nauczyciel na `http://localhost:5001/teacher.html`
-  (to samo hasło nauczyciela). Ankieta jest niezależna od sesji zadań – działa bez niej i obok niej.
+- Osobna aplikacja w panelu nauczyciela (kafelek „Co kumam?”); uczniowie wchodzą na
+  `http://<IP-komputera-nauczyciela>/ankieta`. Ankieta jest niezależna od sesji zadań – działa bez niej i obok niej.
 - Nauczyciel tworzy ankietę: od 1 do kilku pytań (wpisuje ich treść, np. „pętla for”, „tablice”)
   i przed startem wybiera tryb **anonimowy** albo **imienny**.
 - Uczeń ocenia każde pytanie w skali 1–5 i może dopisać jeden opcjonalny komentarz na końcu
@@ -131,8 +133,16 @@ Testy: `dotnet test` w katalogu `TeacherHelp/`.
 - Jedna ankieta naraz. Nowa ankieta zastępuje poprzednią – z ostrzeżeniem, jeśli wyników nie wyeksportowano.
 - Wyniki trzymane tylko w pamięci serwera; trwałość = ręczny eksport do pliku, bez historii ankiet.
 
+**Panel nauczyciela**
+- Jedna strona (`/nauczyciel`, plik `teacher.html`): wspólne logowanie hasłem, potem wybór aplikacji kafelkami
+  (Lekcja, Co kumam?, Obwód elektryczny). Kafelki pokazują na żywo stan aplikacji (np. „Sesja trwa · uczniów: 12”,
+  „Otwarta · odpowiedzi: 8”), bo po zalogowaniu panel jest połączony ze wszystkimi hubami naraz.
+- Aplikacja jest wybierana adresem (`#lekcja`, `#ankieta`, `#obwod`) – działa „Wstecz” i odświeżenie strony.
+  Pasek aplikacji ma powrót do kafelków i adres, który trzeba podać uczniom.
+- Lekcja i ankieta działają niezależnie, mogą trwać jednocześnie.
+
 **Symulator obwodu (dane do ćwiczeń w arkuszu kalkulacyjnym)**
-- Osobna strona `obwod.html`, niezależna od sesji i bez serwera (działa w całości w przeglądarce).
+- Osobna strona dla uczniów `/obwod` (plik `obwod.html`), niezależna od sesji i bez serwera (działa w całości w przeglądarce).
   Uczeń „mierzy” napięcie i natężenie, a wyniki wpisuje do zwykłego arkusza (Excel/Calc) obok.
 - Bateria (1,5–12 V, suwak), wymienny element: 4 oporniki (bez podanych wartości, tylko paski
   kolorów – opór można policzyć z U/I) albo żarówka (opór rośnie z napięciem, więc wykres U(I) nie jest prostą).
@@ -167,9 +177,12 @@ Testy: `dotnet test` w katalogu `TeacherHelp/`.
 - Ankieta „Co kumam”: `Session/SurveyService.cs` (logika, pokryta testami) i `Hubs/SurveyHubs.cs` –
   `SurveyStudentHub` (`/hubs/survey`: `GetView(browserId)`, `Submit`), `SurveyTeacherHub` (`/hubs/survey-teacher`)
   i `SurveyNotifier` (otwarcie/zamknięcie strony ucznia odświeża tylko widok nauczyciela).
-  Strony: `wwwroot/survey.html`, `survey-teacher.html`. Ten sam proces słucha na dwóch portach; na porcie ankiety
-  `/` i `/teacher.html` są przepisywane na strony ankiety (`Program.cs`, po `Connection.LocalPort`).
-  Pod IIS witryna ma dwa powiązania, a port ankiety trafia do `appsettings.Production.json` (`deploy/Install-IIS.ps1 -SurveyPort`).
+  Strona ucznia: `wwwroot/survey.html`.
+- Jeden port; krótkie adresy `/ankieta`, `/obwod`, `/nauczyciel` są przepisywane na pliki z `wwwroot` (`Program.cs`),
+  a `/ankieta/` przekierowuje na `/ankieta` (strony używają ścieżek względnych).
+- Panel nauczyciela: `wwwroot/teacher.html` + moduły ES: `teacher.js` (logowanie, kafelki, przełączanie),
+  `teacher-lesson.js`, `teacher-survey.js` (po jednym na aplikację), `teacher-common.js` (API, huby, status połączenia).
+  `GET /api/teacher/addresses` podaje adresy komputera w sieci, które panel pokazuje jako adres dla uczniów.
 - Frontend: czysty HTML/JS bez frameworka; klient SignalR jest dołączony lokalnie
   (`wwwroot/lib/signalr.min.js`), więc aplikacja działa w sieci szkolnej bez dostępu do internetu.
 
@@ -186,6 +199,7 @@ Testy: `dotnet test` w katalogu `TeacherHelp/`.
 | PUT    | `/api/teacher/tasks/{n}` `{title?}` | zmień tytuł |
 | POST   | `/api/teacher/students/{id}/disconnect` | odłącz ucznia (postęp zostaje) |
 | DELETE | `/api/teacher/students/{id}` | usuń ucznia |
+| GET    | `/api/teacher/addresses` | adresy tego komputera w sieci (dla uczniów) |
 | GET    | `/api/teacher/export.csv` | eksport wyników |
 | POST   | `/api/teacher/files` (multipart: `files`, `task?`) | udostępnij pliki (bez `task` = materiały ogólne) |
 | DELETE | `/api/teacher/files/{id}` | usuń plik |

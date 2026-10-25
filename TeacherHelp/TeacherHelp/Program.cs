@@ -1,7 +1,8 @@
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -17,10 +18,10 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
     ContentRootPath = AppContext.BaseDirectory,
 });
 
-// Ankieta „Co kumam” ma osobny port: te same adresy co aplikacja, tylko z portem ankiety.
-// Pod IIS adresy ustawia się w powiązaniach witryny (deploy/Install-IIS.ps1).
-var surveyPort = builder.Configuration.GetValue("TeacherHelp:SurveyPort", 5001);
-builder.WebHost.UseUrls(WithSurveyPort(builder.Configuration[WebHostDefaults.ServerUrlsKey], surveyPort));
+// Wszystkie aplikacje na jednym porcie, domyślnie 80 na wszystkich interfejsach – uczniowie wpisują sam adres
+// komputera (podstrony: /ankieta, /obwod). Inny port: "Urls" w appsettings.json albo --urls; pod IIS – powiązanie witryny.
+if (string.IsNullOrWhiteSpace(builder.Configuration[WebHostDefaults.ServerUrlsKey]))
+    builder.WebHost.UseUrls("http://0.0.0.0:80");
 
 const long maxUploadBytes = 200L * 1024 * 1024;
 const long maxImportBytes = 5L * 1024 * 1024;
@@ -52,16 +53,23 @@ var teacherPassword = app.Configuration["TeacherHelp:TeacherPassword"] ?? "";
 if (teacherPassword.Length == 0)
     app.Logger.LogWarning("Brak hasła nauczyciela (TeacherHelp:TeacherPassword) - logowanie do panelu będzie niemożliwe.");
 
-// Na porcie ankiety te same adresy prowadzą do stron ankiety (uczeń: „/”, nauczyciel: „/teacher.html”).
+// Wszystko na jednym porcie; krótkie adresy do przepisania z tablicy prowadzą do stron w wwwroot.
+// „/ankieta/” przekierowujemy na „/ankieta” – strony używają ścieżek względnych (style.css, hubs/...).
+var pages = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+{
+    ["/ankieta"] = "/survey.html",
+    ["/obwod"] = "/obwod.html",
+    ["/nauczyciel"] = "/teacher.html",
+};
 app.Use((ctx, next) =>
 {
-    if (ctx.Connection.LocalPort == surveyPort)
-        ctx.Request.Path = ctx.Request.Path.Value switch
-        {
-            "/" or "/index.html" => "/survey.html",
-            "/teacher.html" => "/survey-teacher.html",
-            _ => ctx.Request.Path,
-        };
+    var path = ctx.Request.Path.Value ?? "";
+    if (path.Length > 1 && path.EndsWith('/') && pages.ContainsKey(path.TrimEnd('/')))
+    {
+        ctx.Response.Redirect(path.TrimEnd('/') + ctx.Request.QueryString);
+        return Task.CompletedTask;
+    }
+    if (pages.TryGetValue(path, out var page)) ctx.Request.Path = page;
     return next();
 });
 app.UseDefaultFiles();
@@ -94,6 +102,14 @@ teacher.MapPost("/logout", async (HttpContext ctx) =>
 var secured = teacher.MapGroup("").RequireAuthorization();
 
 secured.MapGet("/me", () => Results.NoContent());
+
+// Adresy, pod którymi uczniowie widzą ten komputer – panel pokazuje je przy każdej aplikacji
+// (nauczyciel zwykle wchodzi przez localhost, więc sam adres z paska przeglądarki nic nie mówi).
+secured.MapGet("/addresses", (HttpRequest request) =>
+{
+    var port = request.Host.Port is { } p && p != 80 ? $":{p}" : "";
+    return Results.Ok(LanAddresses().Select(ip => $"http://{ip}{port}"));
+});
 
 secured.MapPost("/session/start", (StartRequest req, SessionService session) =>
 {
@@ -205,19 +221,15 @@ app.Run();
 static bool PasswordMatches(string given, string expected) =>
     CryptographicOperations.FixedTimeEquals(SHA256.HashData(Encoding.UTF8.GetBytes(given)), SHA256.HashData(Encoding.UTF8.GetBytes(expected)));
 
-// "http://0.0.0.0:5000" → "http://0.0.0.0:5000;http://0.0.0.0:5001". Bierzemy tylko adresy http
-// (https z launchSettings na tym samym porcie co http dałby konflikt). Bez "Urls" – domyślny adres Kestrela.
-static string WithSurveyPort(string? urls, int surveyPort)
-{
-    var list = (string.IsNullOrWhiteSpace(urls) ? "http://localhost:5000" : urls)
-        .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
-    var survey = list
-        .Where(u => u.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
-        .Select(u => Regex.Replace(u.TrimEnd('/'), @":\d+$", $":{surveyPort}"))
-        .Where(u => !list.Contains(u, StringComparer.OrdinalIgnoreCase))
-        .Distinct(StringComparer.OrdinalIgnoreCase);
-    return string.Join(';', list.Concat(survey));
-}
+// Adresy IPv4 aktywnych kart sieciowych, bez pętli zwrotnej i adresów APIPA (169.254.*).
+static IEnumerable<string> LanAddresses() =>
+    NetworkInterface.GetAllNetworkInterfaces()
+        .Where(n => n.OperationalStatus == OperationalStatus.Up && n.NetworkInterfaceType != NetworkInterfaceType.Loopback)
+        .SelectMany(n => n.GetIPProperties().UnicastAddresses)
+        .Select(a => a.Address)
+        .Where(a => a.AddressFamily == AddressFamily.InterNetwork && !a.ToString().StartsWith("169.254."))
+        .Select(a => a.ToString())
+        .Distinct();
 
 // Nasz eksport to UTF-8, ale plik zapisany ponownie w polskim Excelu bywa w Windows-1250.
 static string DecodeCsv(byte[] bytes)

@@ -163,6 +163,53 @@ button:disabled { opacity: .5; cursor: default; }
 .tile.done .num { background: var(--done); color: #fff; }
 .tile.done .check { transform: scale(1); }
 
+/* Nauczyciel: wybór aplikacji */
+.launcher-title { margin: 8px 0 16px; font-size: 1.3rem; }
+.app-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.app-tile {
+  display: flex; flex-direction: column; gap: 6px; padding: 20px; min-height: 190px;
+  border: 2px solid var(--border); border-radius: var(--radius); background: var(--surface);
+  color: var(--text); text-decoration: none; box-shadow: var(--shadow);
+  transition: transform .15s, box-shadow .15s, border-color .15s;
+}
+.app-tile:hover { transform: translateY(-3px); border-color: var(--accent); box-shadow: var(--shadow-lg); }
+.app-tile:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
+.app-icon {
+  display: grid; place-items: center; width: 56px; height: 56px; border-radius: 16px;
+  background: var(--bar-bg); font-size: 1.8rem; margin-bottom: 4px;
+}
+.app-name { font-size: 1.25rem; font-weight: 700; }
+.app-desc { color: var(--muted); font-size: .95rem; flex: 1; }
+.app-info { font-size: .85rem; font-weight: 600; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+.app-info:empty { display: none; }
+.app-info.live { color: var(--done); }
+.app-info.live::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--done); animation: pulse 1.6s ease-in-out infinite; }
+.launcher-hint { margin-top: 20px; }
+.app-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.app-bar h2 { margin: 0; font-size: 1.3rem; }
+.app-bar .spacer { flex: 1; }
+.app-back {
+  color: var(--accent); text-decoration: none; font-weight: 600; padding: 6px 12px;
+  border: 1px solid var(--accent); border-radius: 8px;
+}
+.app-back:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.app-address { font-size: .9rem; color: var(--muted); display: inline-flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.app-address code {
+  font-size: 1rem; font-weight: 700; color: var(--text); padding: 3px 10px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+}
+.circuit-info { max-width: 720px; }
+.circuit-info p { margin: 0 0 12px; }
+.button-link {
+  display: inline-block; padding: 10px 18px; border-radius: 8px; background: var(--accent);
+  color: var(--accent-text); text-decoration: none; font-weight: 600;
+}
+.button-link:hover { filter: brightness(1.08); }
+@media (prefers-reduced-motion: reduce) {
+  .app-tile { transition: none; }
+  .app-info.live::before { animation: none; }
+}
+
 /* Nauczyciel */
 .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
 .toolbar .spacer { flex: 1; }

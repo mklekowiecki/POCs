@@ -1,52 +1,14 @@
-"use strict";
+// Panel nauczyciela – aplikacja „Co kumam?”: ankieta na koniec lekcji.
+import { $, el, api, dashboardHub, setTileInfo, isVisible } from "./teacher-common.js";
 
-const $ = id => document.getElementById(id);
 const MAX_QUESTIONS = 10;
 const EMOJI = ["😵", "😕", "😐", "🙂", "😎"];
-let connection = null;
 let lastVersion = -1;
 let last = null;      // ostatni dashboard
 let creating = false; // formularz „Nowa ankieta” otwarty, choć poprzednia ankieta jeszcze jest
 
 function show(section) {
-  for (const id of ["login", "create", "results"]) $(id).classList.toggle("hidden", id !== section);
-  $("logout").classList.toggle("hidden", section === "login");
-}
-
-function setStatus(text, offline) {
-  $("status").textContent = text;
-  $("status").classList.toggle("offline", !!offline);
-}
-
-function el(tag, props = {}, ...children) {
-  const node = Object.assign(document.createElement(tag), props);
-  node.append(...children);
-  return node;
-}
-
-// Results.BadRequest("...") zwraca tekst jako JSON-owy string (w cudzysłowach).
-async function errorText(res) {
-  const text = await res.text();
-  try {
-    const parsed = JSON.parse(text);
-    if (typeof parsed === "string") return parsed;
-  } catch { /* zwykły tekst */ }
-  return text || res.statusText;
-}
-
-async function api(method, url, body) {
-  const res = await fetch(url, {
-    method,
-    headers: body === undefined ? {} : { "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  if (res.status === 401) {
-    await stopConnection();
-    show("login");
-    throw new Error("Wymagane logowanie");
-  }
-  if (!res.ok) throw new Error(await errorText(res));
-  return res;
+  for (const id of ["create", "results"]) $(id).classList.toggle("hidden", id !== section);
 }
 
 const formatAverage = a => a == null ? "—" : a.toFixed(2).replace(".", ",");
@@ -73,7 +35,7 @@ function addQuestion(text = "") {
   });
   list.append(li);
   updateQuestionButtons();
-  input.focus();
+  if (isVisible("app-survey")) input.focus();
 }
 
 function updateQuestionButtons() {
@@ -88,9 +50,9 @@ function resetCreateForm(questions) {
   $("create-error").textContent = "";
 }
 
-// focus() na ukrytej sekcji nie działa – wołamy po show("create").
+// focus() na ukrytej sekcji nie działa – wołamy po show("create") i przy wejściu do aplikacji.
 function focusFirstQuestion() {
-  $("question-list").querySelector("input")?.focus();
+  if (isVisible("create")) $("question-list").querySelector("input")?.focus();
 }
 
 // --- Wyniki ---
@@ -119,9 +81,9 @@ function renderResults(d) {
   const open = d.state === "Open";
   $("state-badge").textContent = open ? "● Ankieta otwarta" : "Ankieta zamknięta";
   $("state-badge").classList.toggle("open", open);
-  $("summary").textContent = `Odpowiedzi: ${d.responseCount}` + (open ? ` / otwarte strony: ${d.openPages}` : "")
+  $("survey-summary").textContent = `Odpowiedzi: ${d.responseCount}` + (open ? ` / otwarte strony: ${d.openPages}` : "")
     + ` · ${d.named ? "imienna" : "anonimowa"}`;
-  $("close").classList.toggle("hidden", !open);
+  $("survey-close").classList.toggle("hidden", !open);
 
   $("question-stats").replaceChildren(...d.questions.map(renderQuestion));
 
@@ -134,11 +96,11 @@ function renderResults(d) {
 
   $("responses-panel").classList.toggle("hidden", !d.named);
   if (d.named) {
-    $("thead").replaceChildren(el("tr", {},
+    $("survey-thead").replaceChildren(el("tr", {},
       el("th", { textContent: "Uczeń" }),
       ...d.questions.map(q => el("th", { textContent: q.number, title: q.text })),
       el("th", { className: "comment", textContent: "Komentarz" })));
-    $("tbody").replaceChildren(...(d.responses.length
+    $("survey-tbody").replaceChildren(...(d.responses.length
       ? d.responses.map(r => el("tr", {},
           el("td", { textContent: r.name }),
           ...r.ratings.map(v => el("td", { className: `rating r${v}`, textContent: v })),
@@ -152,6 +114,10 @@ function render(d) {
   lastVersion = d.version;
   const wasNone = !last || last.state === "None";
   last = d;
+  setTileInfo("ankieta",
+    d.state === "None" ? "Brak ankiety"
+      : `${d.state === "Open" ? "Otwarta" : "Zamknięta"} · odpowiedzi: ${d.responseCount}`,
+    d.state === "Open");
   if (d.state === "None") {
     if (wasNone && !$("create").classList.contains("hidden")) return; // nie kasujemy wpisanych pytań
     creating = false;
@@ -168,57 +134,19 @@ function render(d) {
 
 // --- Połączenie ---
 
-async function startConnection() {
-  await stopConnection();
+const hub = dashboardHub("hubs/survey-teacher", render);
+
+export async function start() {
   lastVersion = -1;
   last = null;
-  connection = new signalR.HubConnectionBuilder()
-    .withUrl("hubs/survey-teacher")
-    .withAutomaticReconnect({ nextRetryDelayInMilliseconds: () => 2000 })
-    .build();
-  connection.on("dashboard", render);
-  connection.onreconnecting(() => setStatus("Brak połączenia – łączę ponownie…", true));
-  connection.onreconnected(async () => {
-    setStatus("Połączono");
-    render(await connection.invoke("GetDashboard"));
-  });
-  await connection.start();
-  setStatus("Połączono");
-  render(await connection.invoke("GetDashboard"));
+  await hub.start();
 }
 
-async function stopConnection() {
-  if (connection) {
-    const c = connection;
-    connection = null;
-    await c.stop().catch(() => {});
-  }
-}
+export const stop = () => hub.stop();
+
+export const onShow = focusFirstQuestion;
 
 // --- Zdarzenia ---
-
-$("login-form").addEventListener("submit", async ev => {
-  ev.preventDefault();
-  $("login-error").textContent = "";
-  const res = await fetch("api/teacher/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ password: $("password").value }),
-  });
-  if (!res.ok) {
-    $("login-error").textContent = "Nieprawidłowe hasło.";
-    return;
-  }
-  $("password").value = "";
-  await startConnection().catch(e => setStatus(e.message, true));
-});
-
-$("logout").addEventListener("click", async () => {
-  await fetch("api/teacher/logout", { method: "POST" });
-  await stopConnection();
-  setStatus("");
-  show("login");
-});
 
 $("add-question").addEventListener("click", () => addQuestion());
 
@@ -256,15 +184,9 @@ $("cancel-create").addEventListener("click", () => {
   if (last && last.state !== "None") { renderResults(last); show("results"); }
 });
 
-$("close").addEventListener("click", async () => {
+$("survey-close").addEventListener("click", async () => {
   if (!confirm("Zamknąć ankietę? Uczniowie nie będą mogli już odpowiadać.")) return;
   try { await api("POST", "api/teacher/survey/close"); } catch (e) { alert(e.message); }
 });
 
-$("export").addEventListener("click", () => { location.href = "api/teacher/survey/export.csv"; });
-
-(async () => {
-  const me = await fetch("api/teacher/me");
-  if (me.ok) await startConnection().catch(e => setStatus(e.message, true));
-  else show("login");
-})();
+$("survey-export").addEventListener("click", () => { location.href = "api/teacher/survey/export.csv"; });
