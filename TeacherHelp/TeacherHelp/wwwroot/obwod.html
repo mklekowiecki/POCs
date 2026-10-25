@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Obwód elektryczny</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Obwód elektryczny</h1>
+    <span class="muted">Zmierz napięcie i natężenie, a wyniki wpisz do arkusza</span>
+  </header>
+  <main class="sim">
+    <section class="card sim-board">
+      <svg id="board" viewBox="0 0 1000 600" role="img" aria-label="Obwód: bateria, element, woltomierz i amperomierz">
+        <defs>
+          <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse">
+            <circle cx="12" cy="12" r="1.4" class="dot"/>
+          </pattern>
+          <linearGradient id="cell-grad" x1="0" x2="1">
+            <stop offset="0" stop-color="#1f2530"/>
+            <stop offset=".45" stop-color="#4a5466"/>
+            <stop offset="1" stop-color="#1f2530"/>
+          </linearGradient>
+          <radialGradient id="glow-grad">
+            <stop offset="0" stop-color="#fff6c8" stop-opacity="1"/>
+            <stop offset=".4" stop-color="#ffd54a" stop-opacity=".9"/>
+            <stop offset="1" stop-color="#ffb300" stop-opacity="0"/>
+          </radialGradient>
+          <filter id="smoke-blur" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="5"/>
+          </filter>
+        </defs>
+        <rect width="1000" height="600" fill="url(#dots)"/>
+
+        <!-- Bateria -->
+        <g id="battery">
+          <rect x="40" y="170" width="225" height="260" rx="16" class="pcb"/>
+          <path d="M265 360 H225 V405 H140 V190 H225 V240 H265" class="lead"/>
+          <path id="flow-bat" d="M265 360 H225 V405 H140 V190 H225 V240 H265" class="flow"/>
+          <rect x="125" y="204" width="30" height="16" rx="3" class="cell-cap"/>
+          <rect x="95" y="217" width="90" height="170" rx="12" fill="url(#cell-grad)"/>
+          <rect x="95" y="250" width="90" height="6" class="cell-stripe"/>
+          <text x="140" y="243" class="cell-sign">+</text>
+          <text id="bat-volt" x="140" y="318" class="cell-volt">6,0 V</text>
+          <text x="140" y="378" class="cell-sign">−</text>
+          <text x="152" y="462" class="part-name">Bateria</text>
+          <text x="152" y="150" class="short-label">⚠ ZWARCIE!</text>
+        </g>
+
+        <!-- Element: opornik albo żarówka -->
+        <g id="element">
+          <rect x="735" y="170" width="215" height="260" rx="16" class="pcb"/>
+          <path id="lead-el" d="" class="lead"/>
+          <path id="flow-el" d="" class="flow"/>
+          <g id="resistor">
+            <rect x="834" y="262" width="32" height="76" rx="12" class="resistor-body"/>
+            <rect id="band0" x="834" y="272" width="32" height="8"/>
+            <rect id="band1" x="834" y="286" width="32" height="8"/>
+            <rect id="band2" x="834" y="300" width="32" height="8"/>
+            <rect x="834" y="322" width="32" height="7" fill="#c9a227"/>
+          </g>
+          <g id="bulb">
+            <circle id="bulb-glow" cx="850" cy="285" r="105" fill="url(#glow-grad)" opacity="0"/>
+            <circle id="bulb-glass" cx="850" cy="285" r="36" class="glass"/>
+            <line x1="843" y1="316" x2="840" y2="288" class="filament-support"/>
+            <line x1="857" y1="316" x2="860" y2="288" class="filament-support"/>
+            <path id="filament" d="M840 288 q2.5 -7 5 0 t5 0 t5 0 t5 0" class="filament"/>
+            <rect x="834" y="316" width="32" height="30" rx="3" class="bulb-base"/>
+            <path d="M834 324 H866 M834 332 H866 M834 340 H866" class="bulb-thread"/>
+            <circle cx="850" cy="350" r="5" class="bulb-tip"/>
+          </g>
+          <text id="el-name" x="842" y="462" class="part-name">Opornik 1</text>
+        </g>
+
+        <!-- Woltomierz -->
+        <g id="voltmeter">
+          <rect x="390" y="20" width="220" height="135" rx="18" class="dev-body vm-body"/>
+          <circle cx="430" cy="70" r="24" class="dev-badge"/>
+          <text x="430" y="79" class="dev-badge-text vm-text">V</text>
+          <rect x="465" y="42" width="130" height="56" rx="6" class="lcd"/>
+          <text id="vm-value" x="566" y="83" class="lcd-value">0,00</text>
+          <text x="573" y="83" class="lcd-unit">V</text>
+          <text x="500" y="122" class="dev-name">WOLTOMIERZ</text>
+          <text x="432" y="150" class="dev-post-label end">+</text>
+          <text x="568" y="150" class="dev-post-label">COM</text>
+        </g>
+
+        <!-- Amperomierz -->
+        <g id="ammeter">
+          <circle id="burn-flash" cx="500" cy="512" r="150" class="burn-flash"/>
+          <rect x="390" y="445" width="220" height="135" rx="18" class="dev-body am-body"/>
+          <text x="432" y="463" class="dev-post-label end">+</text>
+          <text x="568" y="463" class="dev-post-label">COM</text>
+          <circle cx="430" cy="530" r="24" class="dev-badge"/>
+          <text x="430" y="539" class="dev-badge-text am-text">A</text>
+          <rect x="465" y="502" width="130" height="56" rx="6" class="lcd"/>
+          <text id="am-value" x="566" y="543" class="lcd-value">0,000</text>
+          <text x="573" y="543" class="lcd-unit">A</text>
+          <text x="500" y="489" class="dev-name">AMPEROMIERZ · max 1 A</text>
+          <g class="scorch">
+            <ellipse cx="455" cy="560" rx="38" ry="14"/>
+            <ellipse cx="560" cy="470" rx="30" ry="12"/>
+            <ellipse cx="520" cy="540" rx="44" ry="20"/>
+            <path d="M478 506 L505 528 L497 538 L530 556" class="crack"/>
+          </g>
+        </g>
+
+        <g id="wires"></g>
+        <path id="temp-wire" class="temp-wire hidden" d=""/>
+        <g id="posts"></g>
+
+        <g class="smoke" filter="url(#smoke-blur)" aria-hidden="true">
+          <circle cx="480" cy="470" r="12" style="--dx:-30px; animation-delay:0s"/>
+          <circle cx="505" cy="470" r="14" style="--dx:10px; animation-delay:.5s"/>
+          <circle cx="525" cy="470" r="11" style="--dx:35px; animation-delay:1s"/>
+          <circle cx="495" cy="470" r="13" style="--dx:-15px; animation-delay:1.5s"/>
+          <circle cx="515" cy="470" r="12" style="--dx:25px; animation-delay:2s"/>
+          <circle cx="500" cy="470" r="15" style="--dx:-5px; animation-delay:2.5s"/>
+        </g>
+      </svg>
+      <p class="muted sim-help">
+        🖱️ Przeciągnij od zacisku do zacisku, aby połączyć je przewodem (albo kliknij jeden zacisk, potem drugi).
+        Kliknij przewód, aby go usunąć.
+      </p>
+    </section>
+
+    <aside class="sim-panel">
+      <section class="card">
+        <h3>Element w obwodzie</h3>
+        <div id="elements" class="el-choices"></div>
+      </section>
+
+      <section class="card">
+        <h3>Napięcie baterii</h3>
+        <div class="volt-row">
+          <input id="voltage" type="range" min="1.5" max="12" step="0.5" aria-label="Napięcie baterii">
+          <span id="voltage-value" class="volt-value"></span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h3>Przewody</h3>
+        <div class="sim-buttons">
+          <button type="button" id="reset-wires" class="secondary">Obwód podstawowy</button>
+          <button type="button" id="clear-wires" class="danger">Usuń wszystkie przewody</button>
+          <button type="button" id="replace-ammeter" class="success hidden">Wymień amperomierz</button>
+        </div>
+        <ul id="hints" class="sim-hints"></ul>
+      </section>
+    </aside>
+  </main>
+
+  <dialog id="burn" class="confirm">
+    <form method="dialog" class="confirm-body">
+      <div class="confirm-badge burn-badge" aria-hidden="true">🔥</div>
+      <h2>Amperomierz się spalił!</h2>
+      <p id="burn-current" class="burn-current"></p>
+      <p class="muted burn-text">
+        Amperomierz ma prawie zerowy opór. Gdy podłączysz go równolegle – do baterii albo do opornika –
+        lub tak, że prąd omija opornik, nic nie ogranicza prądu i powstaje zwarcie.
+      </p>
+      <p class="burn-rule">Amperomierz łączymy <strong>szeregowo</strong> – w jednym ciągu z opornikiem,
+        tak żeby cały prąd płynął przez oba po kolei.</p>
+      <div class="confirm-actions">
+        <button type="submit" value="later" class="secondary">Zamknij</button>
+        <button type="submit" value="replace" class="success">Wymień amperomierz</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="obwod.js"></script>
+</body>
+</html>

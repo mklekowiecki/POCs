@@ -305,3 +305,119 @@ th.comment, td.comment { text-align: left; white-space: normal; min-width: 240px
   .frog-wait, .frog-happy { animation: none; }
   .scale input:checked + label { transform: none; }
 }
+
+/* Symulator obwodu */
+.sim {
+  --pcb: #e9edf3; --pcb-edge: #c8cfda; --lead: #b5895a; --wire-shadow: rgba(16,24,40,.25); --wire-black: #2a2e35;
+  display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; max-width: 1400px;
+}
+@media (prefers-color-scheme: dark) {
+  .sim { --pcb: #262c36; --pcb-edge: #3a4250; --lead: #c99a66; --wire-shadow: rgba(255,255,255,.28); --wire-black: #5a616e; }
+}
+@media (max-width: 960px) { .sim { grid-template-columns: 1fr; } }
+.sim-board { padding: 8px; }
+.sim-board svg { display: block; width: 100%; height: auto; user-select: none; touch-action: none; }
+.sim-help { margin: 6px 10px 4px; font-size: .9rem; }
+.sim-panel { display: flex; flex-direction: column; gap: 12px; }
+.sim-panel .card { padding: 14px 16px; }
+.sim-panel h3 { margin: 0 0 10px; font-size: 1rem; }
+.el-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.el-choices input { position: absolute; opacity: 0; pointer-events: none; }
+.el-choices label {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 6px;
+  border: 2px solid var(--border); border-radius: 12px; cursor: pointer; font-weight: 600; font-size: .9rem;
+  transition: border-color .15s, background-color .15s;
+}
+.el-choices label:last-of-type { grid-column: 1 / -1; flex-direction: row; justify-content: center; }
+.el-choices label:hover { border-color: var(--accent); }
+.el-choices input:checked + label { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+.el-choices input:focus-visible + label { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
+.mini-resistor { display: flex; gap: 4px; padding: 3px 8px; border-radius: 6px; background: #e3c9a0; }
+.mini-resistor i { width: 5px; height: 16px; border-radius: 1px; }
+.mini-bulb { font-size: 1.2rem; line-height: 1; }
+.volt-row { display: flex; align-items: center; gap: 12px; }
+.volt-row input { flex: 1; min-width: 0; padding: 0; border: 0; accent-color: var(--accent); }
+.volt-value { font-size: 1.5rem; font-weight: 800; font-variant-numeric: tabular-nums; min-width: 4.2em; text-align: right; }
+.sim-buttons { display: flex; flex-direction: column; gap: 8px; }
+.sim-hints { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.sim-hints li { padding: 8px 10px; border-left: 3px solid var(--danger); background: var(--bg); border-radius: 4px; font-size: .9rem; }
+
+#board .dot { fill: var(--border); }
+#board .pcb { fill: var(--pcb); stroke: var(--pcb-edge); stroke-width: 2; }
+#board .lead { fill: none; stroke: var(--lead); stroke-width: 4; stroke-linejoin: round; }
+#board .flow { fill: none; stroke: #ffd23f; stroke-width: 5; stroke-linecap: round; stroke-dasharray: 0 18; pointer-events: none; }
+#board .part-name { fill: var(--text); font-size: 20px; font-weight: 700; text-anchor: middle; }
+#board .cell-cap { fill: #9aa3b2; }
+#board .cell-stripe { fill: var(--accent); }
+#board .cell-sign { fill: #fff; font-size: 26px; font-weight: 700; text-anchor: middle; }
+#board .cell-volt { fill: #fff; font-size: 21px; font-weight: 800; text-anchor: middle; }
+#board .short-label { display: none; fill: var(--danger); font-size: 22px; font-weight: 800; text-anchor: middle; }
+#battery.short .short-label { display: inline; }
+#battery.short .pcb { stroke: var(--danger); stroke-width: 5; animation: pulse .8s ease-in-out infinite; }
+#board .resistor-body { fill: #e3c9a0; stroke: #a88a5c; stroke-width: 1.5; }
+#board .glass { fill: #fff3b0; fill-opacity: .15; stroke: #9aa3b2; stroke-width: 2; }
+#board .filament-support { stroke: #8a8f98; stroke-width: 1.5; }
+#board .filament { fill: none; stroke: #5a5f68; stroke-width: 2.5; stroke-linecap: round; }
+#board .bulb-base { fill: #b9bec7; stroke: #7d838d; }
+#board .bulb-thread { stroke: #7d838d; stroke-width: 1.5; }
+#board .bulb-tip { fill: #3a3f48; }
+#bulb-glow { pointer-events: none; transition: opacity .25s; }
+
+#board .dev-body { stroke: rgba(0,0,0,.25); stroke-width: 2; }
+#board .vm-body { fill: #2f6fdf; }
+#board .am-body { fill: #e0662a; transition: fill .4s; }
+#board .dev-badge { fill: #fff; }
+#board .dev-badge-text { font-size: 28px; font-weight: 800; text-anchor: middle; }
+#board .vm-text { fill: #2f6fdf; }
+#board .am-text { fill: #e0662a; }
+#board .lcd { fill: #c7d6b0; stroke: rgba(0,0,0,.35); stroke-width: 2; transition: fill .4s; }
+#board .lcd-value { fill: #1d2a12; font: 700 32px Consolas, "DejaVu Sans Mono", monospace; text-anchor: end; }
+#board .lcd-unit { fill: #1d2a12; font-size: 18px; font-weight: 700; }
+#board .dev-name { fill: #fff; font-size: 13px; font-weight: 700; letter-spacing: .08em; text-anchor: middle; }
+#board .dev-post-label { fill: #fff; font-size: 14px; font-weight: 800; }
+#board .dev-post-label.end { text-anchor: end; }
+#board .scorch { display: none; }
+#board .scorch ellipse { fill: #120c08; opacity: .55; }
+#board .crack { fill: none; stroke: #777; stroke-width: 2; }
+#ammeter.burned .am-body { fill: #4a3328; }
+#ammeter.burned .am-text { fill: #4a3328; }
+#ammeter.burned .lcd { fill: #1c1c1c; }
+#ammeter.burned .lcd-unit { display: none; }
+#ammeter.burned .scorch { display: inline; }
+#board .burn-flash { fill: #ffb347; opacity: 0; pointer-events: none; }
+#board .burn-flash.go { animation: burn-flash .7s ease-out; }
+@keyframes burn-flash { 0% { opacity: .95; } 100% { opacity: 0; } }
+#board .smoke { display: none; pointer-events: none; }
+#board.am-burned .smoke { display: inline; }
+#board .smoke circle { fill: #8d939c; transform-box: fill-box; transform-origin: center; opacity: 0; animation: smoke-rise 3s ease-out infinite; }
+@keyframes smoke-rise {
+  0% { transform: translate(0, 0) scale(.3); opacity: 0; }
+  15% { opacity: .7; }
+  100% { transform: translate(var(--dx), -160px) scale(2.6); opacity: 0; }
+}
+
+#board .post-hit { fill: transparent; cursor: crosshair; }
+#board .post-ring { fill: #d5d9df; stroke: #7d838d; stroke-width: 2; transition: stroke .1s; }
+#board .post.plus .post-cap { fill: #d64545; }
+#board .post.minus .post-cap { fill: #2a2e35; }
+#board .post.neutral .post-cap { fill: #c9a227; }
+#board .post:hover .post-ring, #board .post.target .post-ring { stroke: var(--accent); stroke-width: 4; }
+#board .post.selected .post-ring { stroke: var(--accent); stroke-width: 5; animation: pulse 1s ease-in-out infinite; }
+#board .wire-shadow { fill: none; stroke: var(--wire-shadow); stroke-width: 9; stroke-linecap: round; }
+#board .wire-line { fill: none; stroke-width: 6; stroke-linecap: round; }
+#board .wire-line.red { stroke: #d64545; }
+#board .wire-line.black { stroke: var(--wire-black); }
+#board .wire-line.blue { stroke: #2f6fdf; }
+#board .wire-hit { fill: none; stroke: transparent; stroke-width: 20; cursor: pointer; }
+#board .wire:hover .wire-shadow { stroke: var(--danger); opacity: .6; }
+#board .wire:hover .wire-line { stroke-dasharray: 10 6; }
+#board .temp-wire { fill: none; stroke: var(--accent); stroke-width: 5; stroke-dasharray: 8 6; stroke-linecap: round; pointer-events: none; }
+
+.burn-badge { background: #fde7d9; color: #e0662a; }
+.burn-current { font-weight: 700; }
+.burn-text { margin-top: 10px !important; }
+.burn-rule { margin-top: 10px !important; padding: 10px 12px; border-radius: 8px; background: var(--done-bg); }
+@media (prefers-reduced-motion: reduce) {
+  #board .smoke circle, #board .burn-flash.go, #battery.short .pcb, #board .post.selected .post-ring { animation: none; }
+  #board .smoke circle { opacity: .5; transform: translate(var(--dx), -60px) scale(1.6); }
+}

@@ -23,6 +23,7 @@ na tych samych adresach z portem 5001.
 | Nauczyciel             | `http://localhost:5000/teacher.html`      |
 | Ankieta – uczniowie    | `http://<IP-komputera-nauczyciela>:5001/` |
 | Ankieta – nauczyciel   | `http://localhost:5001/teacher.html`      |
+| Symulator obwodu       | `http://<IP-komputera-nauczyciela>:5000/obwod.html` |
 
 Strony ucznia i nauczyciela są podpisane „Lekcja Informatyki” (nagłówki i tytuły kart w `wwwroot/index.html` i `wwwroot/teacher.html`).
 Port ankiety zmienia się w `TeacherHelp:SurveyPort` (np. `dotnet run -- --TeacherHelp:SurveyPort=8081`).
@@ -129,6 +130,20 @@ Testy: `dotnet test` w katalogu `TeacherHelp/`.
   a nauczyciel może pobrać CSV (wszystkie odpowiedzi + podsumowanie).
 - Jedna ankieta naraz. Nowa ankieta zastępuje poprzednią – z ostrzeżeniem, jeśli wyników nie wyeksportowano.
 - Wyniki trzymane tylko w pamięci serwera; trwałość = ręczny eksport do pliku, bez historii ankiet.
+
+**Symulator obwodu (dane do ćwiczeń w arkuszu kalkulacyjnym)**
+- Osobna strona `obwod.html`, niezależna od sesji i bez serwera (działa w całości w przeglądarce).
+  Uczeń „mierzy” napięcie i natężenie, a wyniki wpisuje do zwykłego arkusza (Excel/Calc) obok.
+- Bateria (1,5–12 V, suwak), wymienny element: 4 oporniki (bez podanych wartości, tylko paski
+  kolorów – opór można policzyć z U/I) albo żarówka (opór rośnie z napięciem, więc wykres U(I) nie jest prostą).
+- Woltomierz i amperomierz są osobnymi przyrządami z zaciskami `+` i `COM`; uczeń sam łączy zaciski przewodami
+  (przeciągnięcie albo klik–klik, kliknięcie przewodu go usuwa). Zamienione przewody dają odczyt ujemny.
+- Odczyty lekko „pływają” (szum ok. 0,3% i drganie ostatniej cyfry), jak w prawdziwym mierniku.
+- Amperomierz wytrzymuje 1 A: wpięty równolegle (zwarcie) pali się – błysk, dym i okno z wyjaśnieniem,
+  że amperomierz łączy się szeregowo; „Wymień amperomierz” daje nowy, odłączony.
+- Prąd widać jako kropki płynące po przewodach (szybciej przy większym natężeniu), żarówka świeci jaśniej wraz z mocą.
+- Stan (przewody, element, napięcie, spalony amperomierz) zapisuje się w `localStorage`, więc zamknięcie
+  przeglądarki go nie gubi. Kod: `wwwroot/obwod.js` (analiza węzłowa obwodu), wygląd w `style.css`.
 
 **Świadome uproszczenia (POC)**
 - Brak powiązania z Veyonem – tożsamością ucznia jest imię i nazwisko, komputer jest nieistotny.
