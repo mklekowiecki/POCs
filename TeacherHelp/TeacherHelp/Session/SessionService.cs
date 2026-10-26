@@ -430,11 +430,11 @@ public sealed class SessionService
     }
 
     /// <summary>Cofa ochronę przed formułami dodaną w <see cref="CsvField"/>.</summary>
-    private static string Unescape(string value) =>
+    internal static string Unescape(string value) =>
         value.Length > 1 && value[0] == '\'' && "=+-@\t\r".Contains(value[1]) ? value[1..] : value;
 
     /// <summary>Parser CSV: pola w cudzysłowach mogą zawierać separator, nową linię i podwojony cudzysłów.</summary>
-    private static List<List<string>> ParseCsv(string text, char separator)
+    internal static List<List<string>> ParseCsv(string text, char separator)
     {
         var records = new List<List<string>>();
         var record = new List<string>();

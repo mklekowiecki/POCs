@@ -19,7 +19,7 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 });
 
 // Wszystkie aplikacje na jednym porcie, domyślnie 80 na wszystkich interfejsach – uczniowie wpisują sam adres
-// komputera (podstrony: /ankieta, /obwod). Inny port: "Urls" w appsettings.json albo --urls; pod IIS – powiązanie witryny.
+// komputera (podstrony: /ankieta, /obwod, /budzet). Inny port: "Urls" w appsettings.json albo --urls; pod IIS – powiązanie witryny.
 if (string.IsNullOrWhiteSpace(builder.Configuration[WebHostDefaults.ServerUrlsKey]))
     builder.WebHost.UseUrls("http://0.0.0.0:80");
 
@@ -32,6 +32,8 @@ builder.Services.Configure<FormOptions>(o => o.MultipartBodyLengthLimit = maxUpl
 builder.Services.AddHostedService<SessionNotifier>();
 builder.Services.AddSingleton<SurveyService>();
 builder.Services.AddHostedService<SurveyNotifier>();
+builder.Services.AddSingleton(new BudgetService());
+builder.Services.AddHostedService<BudgetNotifier>();
 builder.Services.AddSignalR()
     .AddJsonProtocol(o => o.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services
@@ -57,8 +59,10 @@ if (teacherPassword.Length == 0)
 // „/ankieta/” przekierowujemy na „/ankieta” – strony używają ścieżek względnych (style.css, hubs/...).
 var pages = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
 {
+    ["/lekcja"] = "/index.html",
     ["/ankieta"] = "/survey.html",
     ["/obwod"] = "/obwod.html",
+    ["/budzet"] = "/budzet.html",
     ["/nauczyciel"] = "/teacher.html",
 };
 app.Use((ctx, next) =>
@@ -81,6 +85,8 @@ app.MapHub<StudentHub>("/hubs/student");
 app.MapHub<TeacherHub>("/hubs/teacher");
 app.MapHub<SurveyStudentHub>("/hubs/survey");
 app.MapHub<SurveyTeacherHub>("/hubs/survey-teacher");
+app.MapHub<BudgetStudentHub>("/hubs/budget");
+app.MapHub<BudgetTeacherHub>("/hubs/budget-teacher");
 
 var teacher = app.MapGroup("/api/teacher");
 
@@ -209,6 +215,49 @@ secured.MapGet("/survey/export.csv", (SurveyService survey) =>
     var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv)).ToArray();
     return Results.File(bytes, "text/csv; charset=utf-8", $"co-kumam-{DateTime.Now:yyyy-MM-dd-HHmm}.csv");
 });
+
+secured.MapPost("/budget/start", (BudgetService budget) =>
+{
+    budget.Start();
+    return Results.NoContent();
+});
+
+secured.MapPost("/budget/finish", (BudgetService budget) =>
+    budget.Finish() ? Results.NoContent() : Results.Conflict("Gra nie trwa."));
+
+secured.MapPost("/budget/players/{id}/next", (string id, BudgetService budget) =>
+    budget.NextMonth(id) ? Results.NoContent() : Results.Conflict("Gra nie trwa albo gracz ma już ostatni miesiąc."));
+
+secured.MapPost("/budget/players/{id}/disconnect", (string id, BudgetService budget) =>
+    budget.DisconnectPlayer(id) ? Results.NoContent() : Results.NotFound());
+
+secured.MapGet("/budget/export.csv", (BudgetService budget) =>
+{
+    var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(budget.ExportCsv())).ToArray();
+    return Results.File(bytes, "text/csv; charset=utf-8", $"budzet-domowy-{DateTime.Now:yyyy-MM-dd-HHmm}.csv");
+});
+
+// Wznowienie gry z pliku z eksportu – jak przy lekcji (formularz czytamy ręcznie, bez antiforgery).
+secured.MapPost("/budget/import", async (HttpRequest request, BudgetService budget, CancellationToken ct) =>
+{
+    if (!request.HasFormContentType) return Results.BadRequest("Oczekiwano formularza z plikiem.");
+    var form = await request.ReadFormAsync(ct);
+    if (form.Files.Count != 1) return Results.BadRequest("Wybierz jeden plik CSV.");
+    if (form.Files[0].Length > maxImportBytes) return Results.BadRequest("Plik jest za duży jak na zapis gry.");
+    using var buffer = new MemoryStream();
+    await form.Files[0].CopyToAsync(buffer, ct);
+    try
+    {
+        return budget.Import(DecodeCsv(buffer.ToArray())) ? Results.NoContent() : Results.Conflict("Gra trwa – najpierw ją zakończ.");
+    }
+    catch (FormatException e)
+    {
+        return Results.BadRequest(e.Message);
+    }
+});
+
+secured.MapDelete("/budget/players/{id}", (string id, BudgetService budget) =>
+    budget.RemovePlayer(id) ? Results.NoContent() : Results.NotFound());
 
 // Pobieranie plików przez uczniów: dostępne, dopóki trwa sesja. Zawsze jako załącznik (nie otwieramy HTML w przeglądarce).
 app.MapGet("/api/files/{id}", (string id, SessionService session, FileStorage storage) =>

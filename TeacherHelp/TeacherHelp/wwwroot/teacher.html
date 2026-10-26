@@ -48,8 +48,14 @@
           <span class="app-desc">Symulator do mierzenia napięcia i natężenia – dane do arkusza kalkulacyjnego</span>
           <span id="tile-info-obwod" class="app-info">Działa bez sesji – wystarczy podać adres</span>
         </a>
+        <a href="#budzet" class="app-tile">
+          <span class="app-icon" aria-hidden="true">💰</span>
+          <span class="app-name">Budżet domowy</span>
+          <span class="app-desc">Gra: losowanie sytuacji rodziny i wydarzeń przez 3 miesiące – obliczenia w arkuszu kalkulacyjnym</span>
+          <span id="tile-info-budzet" class="app-info"></span>
+        </a>
       </nav>
-      <p class="muted launcher-hint">Aplikacje działają niezależnie – lekcja i ankieta mogą trwać jednocześnie.</p>
+      <p class="muted launcher-hint">Aplikacje działają niezależnie – lekcja, ankieta i gra mogą trwać jednocześnie.</p>
     </section>
 
     <!-- Pasek aplikacji: powrót do wyboru i adres dla uczniów -->
@@ -169,6 +175,59 @@
         <p class="muted">Stan obwodu zapisuje się w przeglądarce ucznia, więc zamknięcie karty go nie gubi.</p>
         <a href="obwod" target="_blank" rel="noopener" class="button-link">Otwórz symulator</a>
       </div>
+    </section>
+
+    <!-- Aplikacja: Budżet domowy -->
+    <section id="app-budget" class="hidden">
+      <section id="budget-new" class="hidden">
+        <div class="card budget-intro">
+          <h2>Nowa gra</h2>
+          <p>Każdy uczeń gra osobno. Po dołączeniu losuje dochód (2500–3800 zł), rodzinę i majątek,
+            a potem przez trzy miesiące (wrzesień–listopad) dostaje wydarzenia wylosowane tylko dla siebie.
+            Wpływy, stałe wydatki i saldo liczy sam w arkuszu kalkulacyjnym. Cel: dodatni wynik na koniec gry.</p>
+          <p class="muted">Pierwsi gracze dostają różne kwoty, rodziny i majątki (jak losowanie kartek) –
+            powtórki zaczynają się od szóstego gracza. Kolejne miesiące odsłaniasz każdemu graczowi osobno, gdy skończy poprzedni – nikt nie czeka na resztę klasy.</p>
+          <button id="budget-start" type="button">Rozpocznij grę</button>
+          <h2 class="import">Wznów grę z pliku</h2>
+          <form id="budget-import-form" class="inline budget-import">
+            <input id="budget-import-input" type="file" accept=".csv,text/csv" required>
+            <button type="submit">Wznów</button>
+          </form>
+          <p class="muted">Plik z „Eksport CSV”. Wracają gracze z sytuacją, wydarzeniami i odsłoniętym miesiącem –
+            uczniowie po wejściu wybiorą siebie z listy.</p>
+          <div id="budget-import-error" class="error"></div>
+        </div>
+      </section>
+
+      <section id="budget-game" class="hidden">
+        <div class="toolbar">
+          <span id="budget-state" class="state-badge"></span>
+          <span id="budget-summary" class="survey-summary"></span>
+          <span class="spacer"></span>
+          <button id="budget-export" type="button" class="secondary">Eksport CSV</button>
+          <button id="budget-reimport" type="button" class="secondary">Wznów z pliku…</button>
+          <input id="budget-reimport-input" type="file" accept=".csv,text/csv" class="hidden">
+          <button id="budget-restart" type="button" class="secondary">Nowa gra</button>
+          <button id="budget-finish" type="button" class="danger">Zakończ grę</button>
+        </div>
+        <div class="table-wrap">
+          <table class="budget-table">
+            <thead>
+              <tr>
+                <th>Gracz</th><th>Miesiąc</th><th>Dochód</th><th class="text">Rodzina</th><th class="text">Majątek</th>
+                <th title="Rachunki 150 zł i jedzenie 200 zł na osobę, paliwo 200 zł na samochód">Stałe / mies.</th>
+                <th title="Dochód minus stałe wydatki">Zostaje / mies.</th>
+                <th title="Saldo po 3 miesiącach: przy najdroższych … najtańszych decyzjach">Wynik po 3 mies.</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="budget-tbody"></tbody>
+          </table>
+        </div>
+        <p class="muted">Klucz do sprawdzania arkuszy: „Stałe / mies.” i „Zostaje / mies.” powinny się zgadzać co do złotówki,
+          wynik końcowy zależy od decyzji (✋), więc podany jest zakres. „Wydarzenia” pokazuje wylosowane wydarzenia
+          gracza z kosztem – także w miesiącach jeszcze ukrytych.</p>
+      </section>
     </section>
   </main>
   <script src="lib/signalr.min.js"></script>

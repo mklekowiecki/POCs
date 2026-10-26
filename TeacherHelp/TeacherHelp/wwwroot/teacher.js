@@ -1,14 +1,16 @@
 // Panel nauczyciela: wspólne logowanie, wybór aplikacji (kafelki) i przełączanie między nimi.
-// Aplikacja jest wybierana adresem (#lekcja, #ankieta, #obwod), więc działa „Wstecz” i odświeżenie strony.
+// Aplikacja jest wybierana adresem (#lekcja, #ankieta, #obwod, #budzet), więc działa „Wstecz” i odświeżenie strony.
 // Po zalogowaniu wszystkie huby są połączone naraz – kafelki pokazują na żywo stan lekcji i ankiety.
 import { $, setUnauthorizedHandler, setStatusError, resetStatus } from "./teacher-common.js";
 import * as lesson from "./teacher-lesson.js";
 import * as survey from "./teacher-survey.js";
+import * as budget from "./teacher-budget.js";
 
 const APPS = {
-  lekcja: { section: "app-lesson", title: "Lekcja", path: "/", module: lesson },
+  lekcja: { section: "app-lesson", title: "Lekcja", path: "/lekcja", module: lesson },
   ankieta: { section: "app-survey", title: "Co kumam?", path: "/ankieta", module: survey },
   obwod: { section: "app-circuit", title: "Obwód elektryczny", path: "/obwod" },
+  budzet: { section: "app-budget", title: "Budżet domowy", path: "/budzet", module: budget },
 };
 const SECTIONS = ["login", "launcher", ...Object.values(APPS).map(a => a.section)];
 
@@ -49,12 +51,12 @@ async function enter() {
   loggedIn = true;
   route();
   loadAddresses();
-  await Promise.all([lesson.start(), survey.start()]).catch(e => setStatusError(e.message));
+  await Promise.all([lesson.start(), survey.start(), budget.start()]).catch(e => setStatusError(e.message));
 }
 
 async function leave() {
   loggedIn = false;
-  await Promise.all([lesson.stop(), survey.stop()]);
+  await Promise.all([lesson.stop(), survey.stop(), budget.stop()]);
   resetStatus();
   route();
 }

@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Budżet domowy</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Budżet domowy</h1>
+    <div class="header-right">
+      <span id="player" class="chip"></span>
+      <span id="status" class="status">Łączenie…</span>
+    </div>
+  </header>
+  <main>
+    <section id="waiting" class="center hidden">
+      <div class="budget-icon" aria-hidden="true">💰</div>
+      <h2>Poczekaj, aż prowadzący rozpocznie grę</h2>
+      <p class="muted">Strona przełączy się sama.</p>
+    </section>
+
+    <section id="join" class="hidden">
+      <form id="join-form" class="card budget-join">
+        <div class="budget-icon" aria-hidden="true">💰</div>
+        <h2>Budżet domowy</h2>
+        <p>Przez trzy miesiące prowadzisz budżet swojej rodziny. Za chwilę wylosujesz, ile zarabiasz,
+          ilu członków rodziny utrzymujesz i jaki masz majątek. Wszystkie obliczenia robisz w arkuszu kalkulacyjnym.</p>
+        <p><strong>Cel: na koniec gry mieć dodatni wynik finansowy.</strong></p>
+        <div id="return" class="budget-return hidden">
+          <h3>Wracasz do gry? Wybierz siebie</h3>
+          <div id="return-list" class="choices"></div>
+          <div id="return-error" class="error"></div>
+          <h3>Pierwszy raz w tej grze?</h3>
+        </div>
+        <label for="name">Imię i nazwisko</label>
+        <input id="name" maxlength="60" autocomplete="off" required>
+        <button type="submit" id="join-submit">Losuję swoją sytuację</button>
+        <div id="join-error" class="error"></div>
+      </form>
+    </section>
+
+    <section id="play" class="budget hidden">
+      <div id="finished" class="card budget-finished hidden">
+        <h2>🏁 Koniec gry – sprawdźcie, jak Wam poszło!</h2>
+        <p>Jakie saldo masz po trzech miesiącach? Udało się utrzymać wynik na plusie?
+          Które decyzje najbardziej pomogły, a które zaszkodziły budżetowi?</p>
+      </div>
+
+      <aside class="budget-side">
+        <section class="card">
+          <h3>Twoja sytuacja</h3>
+          <dl class="budget-profile">
+            <dt>Dochód co miesiąc</dt><dd id="income"></dd>
+            <dt>Rodzina</dt><dd id="family"></dd>
+            <dt>Majątek</dt><dd id="assets"></dd>
+          </dl>
+        </section>
+        <section class="card">
+          <h3>Stałe wydatki co miesiąc</h3>
+          <ul class="budget-rules">
+            <li>rachunki – <strong>150 zł</strong> za każdego członka rodziny</li>
+            <li>jedzenie, środki higieniczne – <strong>200 zł</strong> za każdego członka rodziny</li>
+            <li>paliwo – <strong>200 zł</strong> za każdy samochód</li>
+          </ul>
+          <p class="muted">Policz w arkuszu, ile to razem w Twojej rodzinie.</p>
+        </section>
+      </aside>
+
+      <div class="budget-months">
+        <section id="prepare" class="card budget-prepare hidden">
+          <h3>Zaczynamy!</h3>
+          <p>Poznaj swoją sytuację i przygotuj arkusz tak, jak powie prowadzący.</p>
+          <p class="muted">Pierwszy miesiąc odsłoni Ci prowadzący – strona przełączy się sama.</p>
+        </section>
+        <div id="months"></div>
+      </div>
+    </section>
+  </main>
+  <script src="lib/signalr.min.js"></script>
+  <script src="budzet.js"></script>
+</body>
+</html>

@@ -23,6 +23,7 @@ podstronami tego samego adresu, więc uczniowie wpisują sam adres komputera nau
 | Uczniowie – lekcja          | `http://<IP-komputera-nauczyciela>/`         |
 | Uczniowie – ankieta         | `http://<IP-komputera-nauczyciela>/ankieta`  |
 | Uczniowie – symulator       | `http://<IP-komputera-nauczyciela>/obwod`    |
+| Uczniowie – budżet domowy   | `http://<IP-komputera-nauczyciela>/budzet`   |
 
 Panel nauczyciela sam pokazuje adresy dla uczniów (z adresami kart sieciowych komputera) przy każdej aplikacji.
 Strony ucznia i nauczyciela są podpisane „Lekcja Informatyki” (nagłówki i tytuły kart w `wwwroot/index.html` i `wwwroot/teacher.html`).
@@ -135,9 +136,9 @@ Testy: `dotnet test` w katalogu `TeacherHelp/`.
 
 **Panel nauczyciela**
 - Jedna strona (`/nauczyciel`, plik `teacher.html`): wspólne logowanie hasłem, potem wybór aplikacji kafelkami
-  (Lekcja, Co kumam?, Obwód elektryczny). Kafelki pokazują na żywo stan aplikacji (np. „Sesja trwa · uczniów: 12”,
+  (Lekcja, Co kumam?, Obwód elektryczny, Budżet domowy). Kafelki pokazują na żywo stan aplikacji (np. „Sesja trwa · uczniów: 12”,
   „Otwarta · odpowiedzi: 8”), bo po zalogowaniu panel jest połączony ze wszystkimi hubami naraz.
-- Aplikacja jest wybierana adresem (`#lekcja`, `#ankieta`, `#obwod`) – działa „Wstecz” i odświeżenie strony.
+- Aplikacja jest wybierana adresem (`#lekcja`, `#ankieta`, `#obwod`, `#budzet`) – działa „Wstecz” i odświeżenie strony.
   Pasek aplikacji ma powrót do kafelków i adres, który trzeba podać uczniom.
 - Lekcja i ankieta działają niezależnie, mogą trwać jednocześnie.
 
@@ -154,6 +155,30 @@ Testy: `dotnet test` w katalogu `TeacherHelp/`.
 - Prąd widać jako kropki płynące po przewodach (szybciej przy większym natężeniu), żarówka świeci jaśniej wraz z mocą.
 - Stan (przewody, element, napięcie, spalony amperomierz) zapisuje się w `localStorage`, więc zamknięcie
   przeglądarki go nie gubi. Kod: `wwwroot/obwod.js` (analiza węzłowa obwodu), wygląd w `style.css`.
+
+**Gra „Budżet domowy” (scenariusz 6 harcerskiego tutoringu)**
+- Osobna aplikacja w panelu (kafelek „Budżet domowy”); uczniowie wchodzą na `/budzet` (plik `budzet.html`).
+  Aplikacja tylko losuje i pokazuje – wpływy, stałe wydatki i saldo uczeń liczy sam w arkuszu kalkulacyjnym.
+- Nauczyciel rozpoczyna grę; uczeń wpisuje imię i losuje sytuację: dochód (2500/2800/3000/3400/3800 zł), rodzinę
+  (1+1, 1+2, 2+1, 2+2, 2+3 – dorośli + dzieci) i majątek (dom na wsi i 2 samochody, mieszkanie w bloku i samochód,
+  mieszkanie w bloku, dom pod miastem, dom pod miastem i samochód). Każda z trzech cech jest losowana jak z kartek:
+  pierwszych pięciu graczy dostaje różne wartości, powtórki zaczynają się od szóstego.
+- Stałe wydatki co miesiąc: rachunki 150 zł i jedzenie 200 zł na osobę, paliwo 200 zł na samochód.
+- Nauczyciel odsłania kolejne miesiące 1–3 (wrzesień–listopad) każdemu graczowi osobno (przycisk w wierszu gracza),
+  gdy ten skończy poprzedni – szybsi nie czekają na resztę klasy. Tabela pokazuje, który miesiąc ma każdy gracz. Wydarzenia są losowane osobno
+  dla każdego gracza przy dołączeniu (`Session/BudgetService.cs`, tablica `Events`): część zawsze, gdy pasują
+  (wyprawka, ubezpieczenie samochodów), reszta losowo spośród pasujących do rodziny i majątku (np. malowanie klatki
+  tylko w bloku, dąb tylko na wsi, komoda tylko przy dwojgu dorosłych); ciągi dalsze pojawiają się zawsze po swoim
+  wydarzeniu (ząb → darmowy dentysta, kurtki → zima).
+- Panel nauczyciela pokazuje klucz do sprawdzania: stałe wydatki, ile zostaje miesięcznie, zakres wyniku po 3 miesiącach
+  (najdroższe … najtańsze decyzje) i wylosowane wydarzenia gracza z kosztem – także w miesiącach jeszcze ukrytych.
+- „Zakończ grę” odsłania wszystkim pozostałe miesiące i pytanie podsumowujące. Gracza można usunąć (losuje wtedy od nowa).
+- Stan tylko w pamięci serwera; uczeń jest rozpoznawany po identyfikatorze w `localStorage`, więc F5 nie zmienia losowania.
+- **Zapis i wznowienie gry** (jak przy lekcji): „Eksport CSV” zapisuje graczy – imię, odsłonięty miesiąc, dochód, rodzinę,
+  majątek i identyfikatory wylosowanych wydarzeń każdego miesiąca (plus stałe wydatki i zakres wyniku do wglądu).
+  „Wznów grę z pliku” (na ekranie nowej gry albo „Wznów z pliku…” po zakończeniu) odtwarza ich dokładnie.
+  Gracze są wtedy bez przeglądarki: uczeń na ekranie dołączania widzi „Wracasz do gry? Wybierz siebie” i klika swoje imię
+  (z potwierdzeniem). Na tej liście jest każdy gracz bez otwartej strony; „Odłącz” w panelu zwalnia gracza od komputera.
 
 **Świadome uproszczenia (POC)**
 - Brak powiązania z Veyonem – tożsamością ucznia jest imię i nazwisko, komputer jest nieistotny.
@@ -178,7 +203,9 @@ Testy: `dotnet test` w katalogu `TeacherHelp/`.
   `SurveyStudentHub` (`/hubs/survey`: `GetView(browserId)`, `Submit`), `SurveyTeacherHub` (`/hubs/survey-teacher`)
   i `SurveyNotifier` (otwarcie/zamknięcie strony ucznia odświeża tylko widok nauczyciela).
   Strona ucznia: `wwwroot/survey.html`.
-- Jeden port; krótkie adresy `/ankieta`, `/obwod`, `/nauczyciel` są przepisywane na pliki z `wwwroot` (`Program.cs`),
+- Gra „Budżet domowy”: `Session/BudgetService.cs` (losowanie i wydarzenia, pokryta testami) i `Hubs/BudgetHubs.cs`
+  (`/hubs/budget`: `GetView(browserId)`, `Join`, `Claim` (powrót do gry); `/hubs/budget-teacher`). Strony: `budzet.html`, `teacher-budget.js`.
+- Jeden port; krótkie adresy `/ankieta`, `/obwod`, `/budzet`, `/nauczyciel` są przepisywane na pliki z `wwwroot` (`Program.cs`),
   a `/ankieta/` przekierowuje na `/ankieta` (strony używają ścieżek względnych).
 - Panel nauczyciela: `wwwroot/teacher.html` + moduły ES: `teacher.js` (logowanie, kafelki, przełączanie),
   `teacher-lesson.js`, `teacher-survey.js` (po jednym na aplikację), `teacher-common.js` (API, huby, status połączenia).
@@ -206,5 +233,12 @@ Testy: `dotnet test` w katalogu `TeacherHelp/`.
 | POST   | `/api/teacher/survey/start` `{questions[], named}` | nowa ankieta (zastępuje poprzednią) |
 | POST   | `/api/teacher/survey/close` | zamknij ankietę |
 | GET    | `/api/teacher/survey/export.csv` | eksport ankiety |
+| POST   | `/api/teacher/budget/start` | nowa gra „Budżet domowy” (zastępuje poprzednią) |
+| POST   | `/api/teacher/budget/finish` | zakończ grę |
+| POST   | `/api/teacher/budget/players/{id}/next` | odsłoń graczowi kolejny miesiąc |
+| POST   | `/api/teacher/budget/players/{id}/disconnect` | odłącz gracza od przeglądarki (wraca na listę do wybrania) |
+| GET    | `/api/teacher/budget/export.csv` | zapis gry |
+| POST   | `/api/teacher/budget/import` (multipart: `file`) | wznowienie gry z CSV |
+| DELETE | `/api/teacher/budget/players/{id}` | usuń gracza |
 
 Uczniowie pobierają pliki przez `GET /api/files/{id}` (tylko w trakcie sesji).

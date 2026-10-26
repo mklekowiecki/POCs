@@ -230,5 +230,5 @@ Write-Host ""
 Write-Host "Gotowe!" -ForegroundColor Green
 Write-Host "  Panel nauczyciela: http://localhost$suffix/nauczyciel"
 foreach ($ip in Get-LanAddresses) {
-    Write-Host "  Uczniowie:         http://$ip$suffix/  (ankieta: /ankieta, obwód: /obwod)"
+    Write-Host "  Uczniowie:         http://$ip$suffix/  (lekcja: /lekcja, ankieta: /ankieta, obwód: /obwod)"
 }
