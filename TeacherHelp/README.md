@@ -182,7 +182,7 @@ Testy: `dotnet test` w katalogu `TeacherHelp/`.
   przeglądarki go nie gubi. Kod: `wwwroot/obwod.js` (analiza węzłowa obwodu), wygląd w `style.css`.
 
 **Gra „Wyścig do 60” (powtórka na projektor)**
-- Osobna strona `/wyscig` (pliki `wyscig.html`, `wyscig.js`, pytania w `wyscig-pytania.js`), bez sesji i bez serwera –
+- Osobna strona `/wyscig` (pliki `wyscig.html`, `wyscig.js`, wygląd i animacje w `wyscig.css`, pytania w `wyscig-pytania.js`), bez sesji i bez serwera –
   cała klasa gra przy jednym komputerze, gracze lub drużyny (1–6) po kolei.
 - Rzut kostką przesuwa pionek po planszy 1–60. Zwykłe pole: pytanie jednokrotnego wyboru – dobrze = punkt i zostajesz,
   źle = powrót na pole sprzed rzutu. Pola specjalne: `+2`, `−3`, `↻` (dodatkowy rzut), `⚡` wyzwanie (ryzyko:

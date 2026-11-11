@@ -43,7 +43,7 @@ const storage = {
 // ---------- Preferencje (dźwięk, ostatnie ustawienia) ----------
 
 const prefs = Object.assign(
-  { sound: true, names: [], count: 2, cats: RACE_CATEGORIES.map(c => c.id), timer: 30, own: "" },
+  { sound: true, motion: true, names: [], count: 2, cats: RACE_CATEGORIES.map(c => c.id), timer: 30, own: "" },
   storage.get(PREFS_KEY) ?? {});
 const savePrefs = () => storage.set(PREFS_KEY, prefs);
 // Wbudowane kategorie dodane w nowej wersji gry od razu zaznaczamy także w przeglądarkach z zapisanymi ustawieniami.
@@ -252,9 +252,86 @@ function tone(freq, dur = 0.12, type = "sine", delay = 0, gain = 0.15) {
     osc.stop(t + dur);
   } catch { /* brak Web Audio */ }
 }
+// Dźwięk rzutu kostką syntezowany na żywo (bez plików): każde uderzenie o stół to krótki „klak” –
+// filtrowany szum (twarda krawędź) i gasnący ton (pudło stołu). Kostka uderza kilkoma krawędziami naraz,
+// odbija się coraz słabiej, a na końcu „drobi” po blacie, zanim stanie.
+let noiseBuffer = null;
+
+function clack(at, strength) {
+  noiseBuffer ??= (() => {
+    const buf = audio.createBuffer(1, audio.sampleRate * 0.25, audio.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    return buf;
+  })();
+  const out = audio.createGain();
+  out.connect(audio.destination);
+
+  // Twarde kliknięcie: szum przez filtr pasmowy o losowej wysokości (różne krawędzie brzmią inaczej).
+  const noise = audio.createBufferSource();
+  noise.buffer = noiseBuffer;
+  noise.playbackRate.value = 0.8 + Math.random() * 0.4;
+  const band = audio.createBiquadFilter();
+  band.type = "bandpass";
+  band.frequency.value = 2200 + Math.random() * 2600;
+  band.Q.value = 2.5 + Math.random() * 3;
+  const ng = audio.createGain();
+  const nDecay = 0.018 + Math.random() * 0.02;
+  ng.gain.setValueAtTime(0.0001, at);
+  ng.gain.exponentialRampToValueAtTime(0.9 * strength, at + 0.0015);
+  ng.gain.exponentialRampToValueAtTime(0.0001, at + nDecay);
+  noise.connect(band).connect(ng).connect(out);
+  noise.start(at, Math.random() * 0.2, nDecay + 0.01);
+
+  // Głuche „tok” blatu: krótki ton z szybko opadającą wysokością.
+  const body = audio.createOscillator();
+  body.type = "sine";
+  const f = 380 + Math.random() * 260;
+  body.frequency.setValueAtTime(f, at);
+  body.frequency.exponentialRampToValueAtTime(f * 0.7, at + 0.05);
+  const bg = audio.createGain();
+  bg.gain.setValueAtTime(0.0001, at);
+  bg.gain.exponentialRampToValueAtTime(0.35 * strength, at + 0.002);
+  bg.gain.exponentialRampToValueAtTime(0.0001, at + 0.06);
+  body.connect(bg).connect(out);
+  body.start(at);
+  body.stop(at + 0.07);
+}
+
+/** Cały rzut zsynchronizowany z animacją: odbicia w tych samych chwilach co race-die-bounce. */
+function diceSound(totalMs) {
+  if (!prefs.sound) return;
+  try {
+    audio ??= new AudioContext();
+    if (audio.state === "suspended") audio.resume();
+    const t0 = audio.currentTime + 0.02;
+    const total = totalMs / 1000;
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    // Odbicia: [chwila jako ułamek rzutu, siła]; każde to 2–4 uderzenia krawędziami w odstępie kilkudziesięciu ms.
+    const bounces = [[0.42, 1], [0.68, 0.6], [0.85, 0.35]];
+    for (const [frac, strength] of bounces) {
+      const hits = 2 + Math.floor(Math.random() * 3);
+      let t = t0 + frac * total;
+      for (let h = 0; h < hits; h++) {
+        clack(t, strength * (h === 0 ? 1 : rnd(0.35, 0.7)));
+        t += rnd(0.018, 0.055);
+      }
+    }
+    // Toczenie po blacie: coraz cichsze i coraz gęstsze stuknięcia aż do zatrzymania.
+    let t = t0 + 0.87 * total;
+    let gap = 0.075;
+    let strength = 0.28;
+    while (t < t0 + total - 0.02 && strength > 0.03) {
+      clack(t, strength);
+      t += gap * rnd(0.8, 1.2);
+      gap *= 0.82;
+      strength *= 0.78;
+    }
+  } catch { /* brak Web Audio */ }
+}
+
 const sfx = {
   step: () => tone(520, 0.05, "triangle", 0, 0.08),
-  dice: () => { for (let i = 0; i < 5; i++) tone(200 + Math.random() * 300, 0.04, "square", i * 0.06, 0.05); },
   good: () => { tone(660, 0.12); tone(880, 0.18, "sine", 0.12); },
   bad: () => { tone(300, 0.18, "sawtooth", 0, 0.08); tone(200, 0.25, "sawtooth", 0.15, 0.08); },
   bonus: () => { tone(523, 0.1); tone(659, 0.1, "sine", 0.1); tone(784, 0.15, "sine", 0.2); },
@@ -303,10 +380,21 @@ function cellPlace(n) {
   return { row: row + 1, col: row % 2 === 0 ? idx + 1 : COLS - idx };
 }
 
+let tokens = [];     // pionki graczy (elementy w warstwie nad planszą), w kolejności state.players
+let scoreRows = [];  // wiersze tabeli wyników, budowane raz – dzięki temu paski postępu płynnie rosną
+
+/** Ponawia animację CSS przypiętą do klasy (zdjęcie klasy, wymuszenie przeliczenia, założenie). */
+function replay(node, cls) {
+  node.classList.remove(cls);
+  void node.offsetWidth;
+  node.classList.add(cls);
+}
+
 function buildBoard() {
   const board = $("board");
   board.replaceChildren();
   const start = el("div", { className: "race-cell start", id: "cell-0" }, el("span", { className: "race-num", textContent: "Start" }));
+  start.style.setProperty("--n", 0);
   board.append(start);
   for (let n = 1; n <= FINISH; n++) {
     const kind = n === FINISH ? "finish" : SPECIAL[n] ?? "q";
@@ -315,68 +403,201 @@ function buildBoard() {
     const cell = el("div", { className: `race-cell ${kind}`, id: `cell-${n}` },
       el("span", { className: "race-num", textContent: n }),
       el("span", { className: "race-icon", textContent: label }));
+    if (n % COLS === 0 && n < FINISH) cell.classList.add("turn");
     cell.style.gridRow = row + 1;
     cell.style.gridColumn = col;
-    // Kolor postępu: od chłodnego na starcie do ciepłego przy mecie.
-    cell.style.setProperty("--p", (n / FINISH).toFixed(3));
+    // Odcień postępu: od chłodnego błękitu na starcie do ciepłego pomarańczu przy mecie.
+    cell.style.setProperty("--h", Math.round(215 - (n / FINISH) * 190));
+    cell.style.setProperty("--n", n);
     board.append(cell);
   }
+  const layer = el("div", { className: "race-layer", id: "tokens" });
+  board.append(layer);
+  tokens = state.players.map((p, i) => {
+    const token = el("div", { className: "race-token instant", title: p.name },
+      el("span", { className: "race-token-body", textContent: i + 1 }));
+    token.style.setProperty("--c", p.color);
+    layer.append(token);
+    return token;
+  });
+  buildScores();
+  // Kafelki i pionki „wskakują” tylko przy wejściu na planszę.
+  board.classList.add("enter");
+  setTimeout(() => board.classList.remove("enter"), 2200);
 }
 
-function renderTokens() {
-  document.querySelectorAll(".race-token").forEach(t => t.remove());
-  for (const [i, p] of state.players.entries()) {
-    const token = el("span", { className: "race-token" + (i === state.turn && !state.finished ? " active" : ""), textContent: i + 1, title: p.name });
-    token.style.background = p.color;
-    $(`cell-${p.pos}`).append(token);
+function buildScores() {
+  scoreRows = state.players.map((p, i) => {
+    const row = {
+      name: el("span", { className: "race-score-name", textContent: p.name }),
+      pos: el("span", { className: "race-score-pos" }),
+      fill: el("span", { className: "race-fill" }),
+      pts: el("span", { className: "race-score-pts" }),
+      points: p.points,
+    };
+    const chip = el("span", { className: "race-chip", textContent: i + 1 });
+    row.li = el("li", {}, chip,
+      el("div", {}, el("div", { className: "race-score-top" }, row.name, row.pos), el("div", { className: "race-track" }, row.fill)),
+      row.pts);
+    row.li.style.setProperty("--c", p.color);
+    return row;
+  });
+  $("scores").replaceChildren(...scoreRows.map(r => r.li));
+}
+
+/** Ustawia pionki na środkach ich pól; kilka pionków na jednym polu rozsuwa na boki. */
+function layoutTokens(instant = false) {
+  if (!tokens.length || !$("board").offsetWidth) return;
+  const groups = new Map();
+  state.players.forEach((p, i) => groups.set(p.pos, [...(groups.get(p.pos) ?? []), i]));
+  const size = tokens[0].offsetWidth;
+  for (const [pos, list] of groups) {
+    const cell = $(`cell-${pos}`);
+    const gap = Math.min(size * 0.82, (cell.offsetWidth - size - 6) / Math.max(1, list.length - 1));
+    list.forEach((i, k) => {
+      const x = cell.offsetLeft + cell.offsetWidth / 2 + (k - (list.length - 1) / 2) * gap;
+      const y = cell.offsetTop + cell.offsetHeight * (pos === 0 ? 0.5 : 0.6);
+      const token = tokens[i];
+      const active = i === state.turn && !state.finished;
+      token.classList.toggle("instant", instant);
+      token.classList.toggle("active", active);
+      token.style.zIndex = active ? 3 : 2;
+      token.style.transform = `translate(${x}px, ${y}px)`;
+    });
   }
 }
 
 function renderSide() {
   const p = current();
-  $("turn-name").textContent = p.name;
-  $("turn-name").style.color = p.color;
-  $("scores").replaceChildren(...state.players.map((pl, i) =>
-    el("li", { className: i === state.turn ? "active" : "" },
-      el("span", { className: "race-dot", style: `background:${pl.color}` }),
-      el("span", { className: "race-score-name", textContent: pl.name }),
-      el("span", { className: "race-score-pos", textContent: `pole ${pl.pos}` }),
-      el("span", { className: "race-score-pts", textContent: `${pl.points} pkt` }))));
-  $("btn-roll").disabled = busy || state.finished;
+  const name = $("turn-name");
+  if (name.textContent !== p.name) {
+    name.textContent = p.name;
+    replay(name, "swap");
+  }
+  $("turn-card").style.setProperty("--c", p.color);
+  for (const [i, row] of scoreRows.entries()) {
+    const pl = state.players[i];
+    row.li.classList.toggle("active", i === state.turn && !state.finished);
+    row.pos.textContent = `pole ${pl.pos}`;
+    row.fill.style.width = `${(pl.pos / FINISH) * 100}%`;
+    row.pts.textContent = `${pl.points} pkt`;
+    if (pl.points !== row.points) {
+      row.points = pl.points;
+      replay(row.pts, "pop");
+      setTimeout(() => row.pts.classList.remove("pop"), 900);
+    }
+  }
+  const ready = !busy && !state.finished;
+  $("btn-roll").disabled = !ready;
+  $("btn-roll").classList.toggle("ready", ready);
 }
 
 function render() {
-  renderTokens();
+  layoutTokens();
   renderSide();
 }
 
-function message(html) { $("message").innerHTML = html; }
+function message(html) {
+  const box = $("message");
+  box.innerHTML = `<span>${html}</span>`;
+  replay(box, "in");
+}
+
+/** Duży napis na środku planszy, np. „Kolej: Drużyna 2” – znika sam i niczego nie blokuje. */
+function banner(html, color) {
+  const box = $("banner");
+  box.innerHTML = html;
+  box.style.setProperty("--c", color);
+  replay(box, "show");
+}
+
+/** Napis wyskakujący z pola, na którym stoi gracz (np. „+1 pkt”). */
+function floatText(p, text, kind = "") {
+  const cell = $(`cell-${p.pos}`);
+  const node = el("div", { className: `race-float ${kind}`, textContent: text });
+  node.style.left = `${cell.offsetLeft + cell.offsetWidth / 2}px`;
+  node.style.top = `${cell.offsetTop}px`;
+  $("tokens").append(node);
+  setTimeout(() => node.remove(), 1500);
+}
+
+/** Pierścień wokół pola, na którym zatrzymał się pionek. */
+function land(p) {
+  const cell = $(`cell-${p.pos}`);
+  cell.style.setProperty("--ring", p.color);
+  replay(cell, "land");
+  setTimeout(() => cell.classList.remove("land"), 800);
+}
+
+/** Gwiazdki wylatujące z pola gracza (dobra odpowiedź). */
+function sparkle(p) {
+  const r = $(`cell-${p.pos}`).getBoundingClientRect();
+  window.Celebrate?.play("stars", { x: r.left + r.width / 2, y: r.top + r.height / 2 });
+}
+
+// Po zmianie rozmiaru okna pionki trzeba przeliczyć (bez animacji przesuwania).
+new ResizeObserver(() => { if (state) layoutTokens(true); }).observe($("board"));
 
 // ---------- Kostka i ruch ----------
 
+// Animacje włącza/wyłącza przycisk w nagłówku (domyślnie włączone, niezależnie od ustawień systemu).
+const reducedMotion = () => !prefs.motion;
+
+// Kostka 3D: sześć ścianek z oczkami; obrót sześcianu pokazuje wylosowaną ściankę.
+// [obrót X, obrót Y] w stopniach, który ustawia daną ściankę przodem.
+const FACE_ROTATION = { 1: [0, 0], 2: [0, -90], 3: [-90, 0], 4: [90, 0], 5: [0, 90], 6: [0, 180] };
+let cube = null;
+let spins = 0;
+
+function buildDie() {
+  cube = el("div", { className: "race-cube" }, ...[1, 2, 3, 4, 5, 6].map(v =>
+    el("div", { className: `race-face f${v}` }, ...Array.from({ length: 9 }, () => el("i")))));
+  $("die").replaceChildren(cube);
+}
+
+const ROLL_MS = 2200; // czas rzutu – taki sam jak --roll w wyscig.css
+
+function showDie(v) {
+  const [x, y] = FACE_ROTATION[v];
+  // Każdy rzut dokłada pełne obroty (3 w pionie, 2 w poziomie), więc kostka zawsze toczy się w tę samą stronę
+  // i ląduje na właściwej ściance.
+  cube.style.transform = `translateZ(calc(var(--d) / -2)) rotateX(${x + spins * 1080}deg) rotateY(${y + spins * 720}deg)`;
+  $("die").setAttribute("aria-label", `Kostka: ${v}`);
+}
+
 async function rollDie() {
   const die = $("die");
-  sfx.dice();
-  die.classList.add("rolling");
-  for (let i = 0; i < 8; i++) {
-    die.dataset.v = 1 + Math.floor(Math.random() * 6);
-    await sleep(70);
-  }
   const v = 1 + Math.floor(Math.random() * 6);
-  die.dataset.v = v;
+  die.classList.remove("landed");
+  spins++;
+  showDie(v);
+  replay(die, "rolling");
+  // Stukot kostki o stół przy każdym odbiciu (w rytmie animacji race-die-bounce).
+  diceSound(reducedMotion() ? 400 : ROLL_MS);
+  await sleep(reducedMotion() ? 250 : ROLL_MS);
   die.classList.remove("rolling");
+  replay(die, "landed");
+  await sleep(reducedMotion() ? 0 : 350);
   return v;
 }
 
-/** Przesuwa pionek pole po polu do celu (w obie strony). */
+/** Przesuwa pionek pole po polu do celu; do przodu podskakuje, do tyłu zjeżdża szybciej. */
 async function moveTo(p, target) {
   target = Math.max(0, Math.min(FINISH, target));
+  const i = state.players.indexOf(p);
+  const back = target < p.pos;
+  const ms = back ? 110 : 210;
+  const body = tokens[i].firstElementChild;
+  tokens[i].style.setProperty("--step", `${ms}ms`);
   while (p.pos !== target) {
-    p.pos += p.pos < target ? 1 : -1;
+    p.pos += back ? -1 : 1;
     sfx.step();
-    renderTokens();
-    await sleep(170);
+    layoutTokens();
+    replay(body, "hop");
+    await sleep(ms);
   }
+  body.classList.remove("hop");
+  land(p);
   renderSide();
 }
 
@@ -399,6 +620,8 @@ async function roll() {
   if (!again) state.turn = (state.turn + 1) % state.players.length;
   save();
   render();
+  const next = current();
+  banner(again ? `↻ <b>${esc(next.name)}</b> rzuca jeszcze raz!` : `Kolej: <b>${esc(next.name)}</b>`, next.color);
 }
 
 /** Skutek pola, na którym stanął gracz. Zwraca true, gdy gracz rzuca jeszcze raz. */
@@ -408,7 +631,8 @@ async function resolveField(p, from) {
   if (kind === "bonus") {
     sfx.bonus();
     message(`<b>${esc(p.name)}</b>: pole <b>+2</b> – dwa pola do przodu!`);
-    await sleep(500);
+    floatText(p, "+2 pola", "good");
+    await sleep(650);
     await moveTo(p, p.pos + 2);
     if (p.pos === FINISH) return finalQuestion(p, from);
     return false;
@@ -416,13 +640,15 @@ async function resolveField(p, from) {
   if (kind === "trap") {
     sfx.trap();
     message(`<b>${esc(p.name)}</b>: pole <b>−3</b> – trzy pola do tyłu.`);
-    await sleep(500);
+    floatText(p, "−3 pola", "bad");
+    await sleep(650);
     await moveTo(p, p.pos - 3);
     return false;
   }
   if (kind === "again") {
     sfx.bonus();
     message(`<b>${esc(p.name)}</b>: pole <b>↻</b> – rzucasz jeszcze raz!`);
+    floatText(p, "↻ jeszcze raz", "again");
     return true;
   }
   if (kind === "challenge") {
@@ -432,10 +658,16 @@ async function resolveField(p, from) {
       if (ok) {
         p.points++;
         message(`<b>${esc(p.name)}</b> wygrywa wyzwanie: <b>+3 pola</b> i punkt!`);
+        floatText(p, "⚡ +3 pola", "gold");
+        sparkle(p);
+        renderSide();
+        await sleep(500);
         await moveTo(p, p.pos + 3);
         if (p.pos === FINISH) return finalQuestion(p, from);
       } else {
         message(`<b>${esc(p.name)}</b> przegrywa wyzwanie: <b>−3 pola</b>.`);
+        floatText(p, "−3 pola", "bad");
+        await sleep(500);
         await moveTo(p, p.pos - 3);
       }
       return false;
@@ -450,8 +682,14 @@ async function afterNormal(p, from, ok) {
   if (ok) {
     p.points++;
     message(`<b>${esc(p.name)}</b>: dobrze! +1 punkt, zostajesz na polu ${p.pos}.`);
+    floatText(p, "+1 pkt", "good");
+    sparkle(p);
+    renderSide();
+    await sleep(700);
   } else {
     message(`<b>${esc(p.name)}</b>: niestety źle – powrót na pole ${from}.`);
+    floatText(p, "↩ powrót", "bad");
+    await sleep(450);
     await moveTo(p, from);
   }
   return false;
@@ -467,11 +705,16 @@ async function finalQuestion(p, from) {
     save();
     sfx.win();
     message(`🏆 <b>${esc(p.name)}</b> wygrywa!`);
-    if (window.Celebrate) Celebrate.finale(`🏆 ${p.name} wygrywa!`);
-    await sleep(2200);
+    layoutTokens();
+    renderSide();
+    banner(`🏆 <b>${esc(p.name)}</b> wygrywa!`, p.color);
+    window.Celebrate?.finale();
+    await sleep(2400);
     return false;
   }
   message(`<b>${esc(p.name)}</b>: zła odpowiedź na mecie – powrót na pole ${from}.`);
+  floatText(p, "↩ powrót", "bad");
+  await sleep(450);
   await moveTo(p, from);
   return false;
 }
@@ -480,13 +723,25 @@ async function finalQuestion(p, from) {
 
 let dialogKeys = null; // obsługa klawiszy w otwartym oknie
 
+/** Zamyka okno z krótką animacją wyjścia. */
+async function closeDialog(dlg) {
+  dlg.classList.add("closing");
+  await sleep(reducedMotion() ? 0 : 170);
+  dlg.classList.remove("closing");
+  dlg.close();
+}
+
 function askChallenge(p) {
   return new Promise(resolve => {
     const dlg = $("dlg-challenge");
     $("challenge-who").textContent = p.name;
-    const done = risk => {
+    $("challenge-who").style.color = p.color;
+    let closed = false;
+    const done = async risk => {
+      if (closed) return;
+      closed = true;
       dialogKeys = null;
-      dlg.close();
+      await closeDialog(dlg);
       resolve(risk);
     };
     $("btn-ch-yes").onclick = () => done(true);
@@ -510,32 +765,38 @@ function askQuestion(p, kind) {
     const correct = q.a[0];
     const answers = shuffle([...q.a]);
     const cat = categories().find(c => c.id === q.c);
+    dlg.style.setProperty("--c", p.color);
     $("q-who").textContent = p.name;
-    $("q-who").style.background = p.color;
     $("q-kind").textContent = kind;
     $("q-cat").textContent = cat ? `${cat.icon} ${cat.name}` : "";
     $("q-text").textContent = q.q;
     $("q-feedback").textContent = "";
     $("q-feedback").className = "race-feedback";
     $("btn-next").classList.add("hidden");
-    const buttons = answers.map((a, i) => el("button", { type: "button", className: "race-answer" },
-      el("span", { className: "race-letter", textContent: LETTERS[i] }), el("span", { textContent: a })));
+    // Odpowiedzi wjeżdżają po kolei (--i steruje opóźnieniem animacji).
+    const buttons = answers.map((a, i) => {
+      const b = el("button", { type: "button", className: "race-answer" },
+        el("span", { className: "race-letter", textContent: LETTERS[i] }), el("span", { textContent: a }));
+      b.style.setProperty("--i", i);
+      return b;
+    });
     $("q-answers").replaceChildren(...buttons);
-
 
     // Licznik czasu
     let timerId = null;
     const bar = $("q-timer");
     bar.classList.toggle("hidden", !state.timer);
+    bar.classList.remove("low");
     if (state.timer) {
       const end = performance.now() + state.timer * 1000;
       let lastSec = state.timer;
-      const span = bar.firstElementChild;
+      const span = $("q-timer-bar");
       const tick = () => {
         const left = Math.max(0, end - performance.now());
         span.style.width = `${(left / (state.timer * 1000)) * 100}%`;
         bar.classList.toggle("low", left < 5000);
         const sec = Math.ceil(left / 1000);
+        $("q-secs").textContent = sec;
         if (sec !== lastSec && sec <= 5 && sec > 0) sfx.tick();
         lastSec = sec;
         if (left <= 0) answer(-1);
@@ -549,6 +810,7 @@ function askQuestion(p, kind) {
       if (answered) return;
       answered = true;
       clearInterval(timerId);
+      bar.classList.remove("low");
       const ok = i >= 0 && answers[i] === correct;
       buttons.forEach((b, k) => {
         b.disabled = true;
@@ -571,9 +833,12 @@ function askQuestion(p, kind) {
       const next = $("btn-next");
       next.classList.remove("hidden");
       next.focus();
-      next.onclick = () => {
+      let closed = false;
+      next.onclick = async () => {
+        if (closed) return;
+        closed = true;
         dialogKeys = null;
-        dlg.close();
+        await closeDialog(dlg);
         resolve(ok);
       };
       dialogKeys = key => {
@@ -619,10 +884,27 @@ function showSummary() {
   save();
   show("summary");
   const w = state.winner != null ? state.players[state.winner] : null;
-  $("summary-winner").textContent = w ? `🏆 Zwycięzca: ${w.name}` : "Gra zakończona przed metą.";
-  $("summary-body").replaceChildren(...ranking().map((p, k) => el("tr", {},
+  $("summary-winner").textContent = w ? `🏆 Wygrywa ${w.name}!` : "Gra zakończona przed metą";
+  const rank = ranking();
+  // Podium: drugie miejsce po lewej, pierwsze w środku, trzecie po prawej; słupki rosną od najniższego.
+  const top = rank.slice(0, 3);
+  const order = top.length === 3 ? [1, 0, 2] : top.length === 2 ? [1, 0] : [0];
+  $("podium").replaceChildren(...order.map(k => {
+    const col = el("div", { className: `race-podium-col p${k + 1}` },
+      el("div", { className: "race-podium-medal", textContent: ["🥇", "🥈", "🥉"][k] }),
+      el("div", { className: "race-podium-name", textContent: top[k].name }),
+      el("div", { className: "race-podium-bar", textContent: k + 1 }));
+    col.style.setProperty("--c", top[k].color);
+    return col;
+  }));
+  const chip = p => {
+    const c = el("span", { className: "race-chip", textContent: p.i + 1 });
+    c.style.setProperty("--c", p.color);
+    return c;
+  };
+  $("summary-body").replaceChildren(...rank.map((p, k) => el("tr", {},
     el("td", { textContent: k + 1 }),
-    el("td", { className: "text" }, el("span", { className: "race-dot", style: `background:${p.color}` }), " " + p.name),
+    el("td", { className: "text" }, el("span", { className: "race-who" }, chip(p), p.name)),
     el("td", { textContent: p.pos }),
     el("td", { textContent: p.points }),
     el("td", { textContent: p.good }),
@@ -665,14 +947,27 @@ function show(section) {
   for (const id of ["setup", "game", "summary"]) $(id).classList.toggle("hidden", id !== section);
 }
 
+// Przełączniki segmentowe (grupy radio): liczba graczy i czas na odpowiedź.
+const seg = {
+  get: id => +($(id).querySelector("input:checked")?.value ?? 0),
+  set: (id, value) => {
+    const input = $(id).querySelector(`input[value="${value}"]`) ?? $(id).querySelector("input");
+    input.checked = true;
+  },
+};
+
 function renderNames() {
-  const n = +$("player-count").value;
+  const n = seg.get("player-count");
   const box = $("player-names");
   const old = [...box.querySelectorAll("input")].map(i => i.value);
-  box.replaceChildren(...Array.from({ length: n }, (_, i) => {
-    const input = el("input", { maxLength: 30, value: old[i] ?? prefs.names[i] ?? (n === 1 ? "Gracz" : `Drużyna ${i + 1}`) });
-    return el("label", { className: "race-name" }, el("span", { className: "race-dot", style: `background:${COLORS[i]}` }), input);
-  }));
+  // Istniejące pola zostają (bez ponownej animacji), dokładamy albo zdejmujemy tylko końcowe.
+  while (box.children.length > n) box.lastElementChild.remove();
+  for (let i = box.children.length; i < n; i++) {
+    const input = el("input", { maxLength: 30, value: old[i] ?? prefs.names[i] ?? `Drużyna ${i + 1}`, ariaLabel: `Nazwa gracza ${i + 1}` });
+    const label = el("label", { className: "race-name" }, el("span", { className: "race-chip", textContent: i + 1 }), input);
+    label.style.setProperty("--c", COLORS[i]);
+    box.append(label);
+  }
 }
 
 function renderCategories() {
@@ -680,8 +975,15 @@ function renderCategories() {
   $("category-list").replaceChildren(...categories().map(c => {
     const count = all.filter(q => q.c === c.id).length;
     const box = el("input", { type: "checkbox", value: c.id, checked: prefs.cats.includes(c.id) });
-    return el("label", { className: "race-cat" }, box, ` ${c.icon} ${c.name} `, el("span", { className: "muted", textContent: `(${count})` }));
+    return el("label", { className: "race-cat" }, box,
+      el("span", { className: "race-cat-icon", textContent: c.icon }),
+      el("span", { className: "race-cat-name", textContent: c.name }),
+      el("span", { className: "race-cat-count", textContent: count }));
   }));
+}
+
+function checkAllCategories(on) {
+  for (const box of document.querySelectorAll("#category-list input")) box.checked = on;
 }
 
 function onOwnInput() {
@@ -701,14 +1003,15 @@ function onOwnInput() {
 }
 
 function showSetup() {
-  $("player-count").value = prefs.count;
+  seg.set("player-count", prefs.count);
+  $("player-names").replaceChildren();
   renderNames();
   $("own-text").value = prefs.own;
   const own = parseOwn(prefs.own);
   $("own-count").textContent = own.questions.length;
   $("own-error").textContent = own.error;
   renderCategories();
-  $("timer").value = prefs.timer;
+  seg.set("timer", prefs.timer);
   const saved = storage.get(SAVE_KEY);
   const canResume = saved?.players?.length && !saved.finished;
   $("resume-box").classList.toggle("hidden", !canResume);
@@ -723,7 +1026,7 @@ function showSetup() {
 function startFromSetup() {
   const names = [...document.querySelectorAll("#player-names input")].map((i, k) => i.value.trim() || `Gracz ${k + 1}`);
   const cats = [...document.querySelectorAll("#category-list input:checked")].map(i => i.value);
-  const timer = +$("timer").value;
+  const timer = seg.get("timer");
   if (!cats.length) { $("setup-error").textContent = "Zaznacz co najmniej jeden zakres pytań."; return; }
   if ($("own-error").textContent) { $("setup-error").textContent = "Popraw własne pytania – błąd jest opisany pod polem z pytaniami."; return; }
   Object.assign(prefs, { names, count: names.length, cats, timer });
@@ -736,11 +1039,14 @@ function startBoard() {
   show("game");
   buildBoard();
   busy = false;
+  showDie(1);
   message(`Kolej: <b>${esc(current().name)}</b> – rzuć kostką!`);
-  render();
+  layoutTokens(true);
+  renderSide();
+  setTimeout(() => banner(`Kolej: <b>${esc(current().name)}</b>`, current().color), 900);
 }
 
-function replay() {
+function playAgain() {
   newGame(state.players.map(p => p.name), state.cats, state.timer);
   startBoard();
 }
@@ -751,7 +1057,18 @@ function esc(s) {
 
 // ---------- Przyciski i klawisze ----------
 
-function setToggle(btn, on) { btn.setAttribute("aria-pressed", on); btn.classList.toggle("off", !on); }
+function showMotion() {
+  $("btn-motion").setAttribute("aria-pressed", prefs.motion);
+  $("btn-motion").classList.toggle("off", !prefs.motion);
+  document.body.classList.toggle("no-motion", !prefs.motion);
+  window.Celebrate?.setMotion(prefs.motion);
+}
+
+function showSound() {
+  $("btn-sound").setAttribute("aria-pressed", prefs.sound);
+  $("btn-sound").classList.toggle("off", !prefs.sound);
+  $("sound-icon").textContent = prefs.sound ? "🔊" : "🔇";
+}
 
 $("player-count").addEventListener("change", renderNames);
 $("own-text").addEventListener("input", onOwnInput);
@@ -775,12 +1092,15 @@ $("btn-save").addEventListener("click", saveGameFile);
 $("btn-save-summary").addEventListener("click", saveGameFile);
 $("btn-roll").addEventListener("click", roll);
 $("btn-end").addEventListener("click", () => { if (!busy && confirm("Zakończyć grę i pokazać podsumowanie?")) showSummary(); });
-$("btn-again").addEventListener("click", replay);
+$("btn-again").addEventListener("click", playAgain);
 $("btn-players").addEventListener("click", showSetup);
 $("btn-copy").addEventListener("click", copyList);
 $("btn-rules").addEventListener("click", () => $("dlg-rules").showModal());
 $("btn-rules-close").addEventListener("click", () => $("dlg-rules").close());
-$("btn-sound").addEventListener("click", e => { prefs.sound = !prefs.sound; savePrefs(); setToggle(e.currentTarget, prefs.sound); });
+$("btn-sound").addEventListener("click", () => { prefs.sound = !prefs.sound; savePrefs(); showSound(); });
+$("btn-motion").addEventListener("click", () => { prefs.motion = !prefs.motion; savePrefs(); showMotion(); });
+$("btn-cats-all").addEventListener("click", () => checkAllCategories(true));
+$("btn-cats-none").addEventListener("click", () => checkAllCategories(false));
 $("btn-full").addEventListener("click", () => {
   if (document.fullscreenElement) document.exitFullscreen();
   else document.documentElement.requestFullscreen?.().catch(() => {});
@@ -800,5 +1120,7 @@ document.addEventListener("keydown", e => {
   }
 });
 
-setToggle($("btn-sound"), prefs.sound);
+showSound();
+showMotion();
+buildDie();
 showSetup();

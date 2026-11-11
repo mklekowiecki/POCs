@@ -6,7 +6,10 @@ const Celebrate = (() => {
   const COLORS = ["#ff4d4d", "#ffb020", "#ffe14d", "#3cc47a", "#3aa0ff", "#8f6bff", "#ff6bd6"];
   const rand = (a, b) => a + Math.random() * (b - a);
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
-  const reducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  // Strona może zdecydować sama (np. gra z przełącznikiem „Animacje”) – wtedy ustawienie systemu nie wyłącza efektów.
+  let motionOverride = null;
+  const reducedMotion = () => motionOverride != null ? !motionOverride
+    : window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
   let canvas = null, ctx = null, particles = [], running = false, last = 0;
 
@@ -206,6 +209,8 @@ const Celebrate = (() => {
 
   return {
     kinds: Object.keys(effects),
+    /** true/false – efekty zawsze włączone/wyłączone; null – według ustawienia systemu (domyślnie). */
+    setMotion(on) { motionOverride = on; },
     names,
     /** Odpala efekt `kind`; origin = środek klikniętego kafelka ({x, y} w px okna). */
     play(kind, origin, message) {
