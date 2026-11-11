@@ -1,5 +1,5 @@
 // Panel nauczyciela: wspólne logowanie, wybór aplikacji (kafelki) i przełączanie między nimi.
-// Aplikacja jest wybierana adresem (#lekcja, #ankieta, #obwod, #budzet), więc działa „Wstecz” i odświeżenie strony.
+// Aplikacja jest wybierana adresem (#lekcja, #ankieta, #obwod, #budzet, #wyscig), więc działa „Wstecz” i odświeżenie strony.
 // Po zalogowaniu wszystkie huby są połączone naraz – kafelki pokazują na żywo stan lekcji i ankiety.
 import { $, setUnauthorizedHandler, setStatusError, resetStatus } from "./teacher-common.js";
 import * as lesson from "./teacher-lesson.js";
@@ -11,6 +11,7 @@ const APPS = {
   ankieta: { section: "app-survey", title: "Co kumam?", path: "/ankieta", module: survey },
   obwod: { section: "app-circuit", title: "Obwód elektryczny", path: "/obwod" },
   budzet: { section: "app-budget", title: "Budżet domowy", path: "/budzet", module: budget },
+  wyscig: { section: "app-race", title: "Wyścig do 60", path: "/wyscig" },
 };
 const SECTIONS = ["login", "launcher", ...Object.values(APPS).map(a => a.section)];
 

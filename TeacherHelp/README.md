@@ -24,6 +24,7 @@ podstronami tego samego adresu, więc uczniowie wpisują sam adres komputera nau
 | Uczniowie – ankieta         | `http://<IP-komputera-nauczyciela>/ankieta`  |
 | Uczniowie – symulator       | `http://<IP-komputera-nauczyciela>/obwod`    |
 | Uczniowie – budżet domowy   | `http://<IP-komputera-nauczyciela>/budzet`   |
+| Gra „Wyścig do 60” (projektor) | `http://localhost/wyscig`                |
 
 Panel nauczyciela sam pokazuje adresy dla uczniów (z adresami kart sieciowych komputera) przy każdej aplikacji.
 Strony ucznia i nauczyciela są podpisane „Lekcja Informatyki” (nagłówki i tytuły kart w `wwwroot/index.html` i `wwwroot/teacher.html`).
@@ -160,9 +161,9 @@ Testy: `dotnet test` w katalogu `TeacherHelp/`.
 
 **Panel nauczyciela**
 - Jedna strona (`/nauczyciel`, plik `teacher.html`): wspólne logowanie hasłem, potem wybór aplikacji kafelkami
-  (Lekcja, Co kumam?, Obwód elektryczny, Budżet domowy). Kafelki pokazują na żywo stan aplikacji (np. „Sesja trwa · uczniów: 12”,
+  (Lekcja, Co kumam?, Obwód elektryczny, Budżet domowy, Wyścig do 60). Kafelki pokazują na żywo stan aplikacji (np. „Sesja trwa · uczniów: 12”,
   „Otwarta · odpowiedzi: 8”), bo po zalogowaniu panel jest połączony ze wszystkimi hubami naraz.
-- Aplikacja jest wybierana adresem (`#lekcja`, `#ankieta`, `#obwod`, `#budzet`) – działa „Wstecz” i odświeżenie strony.
+- Aplikacja jest wybierana adresem (`#lekcja`, `#ankieta`, `#obwod`, `#budzet`, `#wyscig`) – działa „Wstecz” i odświeżenie strony.
   Pasek aplikacji ma powrót do kafelków i adres, który trzeba podać uczniom.
 - Lekcja i ankieta działają niezależnie, mogą trwać jednocześnie.
 
@@ -179,6 +180,26 @@ Testy: `dotnet test` w katalogu `TeacherHelp/`.
 - Prąd widać jako kropki płynące po przewodach (szybciej przy większym natężeniu), żarówka świeci jaśniej wraz z mocą.
 - Stan (przewody, element, napięcie, spalony amperomierz) zapisuje się w `localStorage`, więc zamknięcie
   przeglądarki go nie gubi. Kod: `wwwroot/obwod.js` (analiza węzłowa obwodu), wygląd w `style.css`.
+
+**Gra „Wyścig do 60” (powtórka na projektor)**
+- Osobna strona `/wyscig` (pliki `wyscig.html`, `wyscig.js`, pytania w `wyscig-pytania.js`), bez sesji i bez serwera –
+  cała klasa gra przy jednym komputerze, gracze lub drużyny (1–6) po kolei.
+- Rzut kostką przesuwa pionek po planszy 1–60. Zwykłe pole: pytanie jednokrotnego wyboru – dobrze = punkt i zostajesz,
+  źle = powrót na pole sprzed rzutu. Pola specjalne: `+2`, `−3`, `↻` (dodatkowy rzut), `⚡` wyzwanie (ryzyko:
+  dobrze +3 pola, źle −3; albo zwykłe pytanie). Na mecie pytanie finałowe – dobra odpowiedź wygrywa.
+- Ustawienia: gracze i nazwy, zakres (7 działów: po 16 pytań ze sprzętu, klawiatury i skrótów, programów i plików,
+  internetu, bezpieczeństwa i netykiety, algorytmów i Scratcha oraz 50 pytań z podstaw arkusza LibreOffice Calc),
+  limit czasu na odpowiedź i własne pytania nauczyciela.
+- Format pytań (pole „Własne pytania” i pliki .txt): blok = treść, potem 2–4 odpowiedzi, poprawna z `*`; bloki oddzielone
+  pustą linią. Linia `# Nazwa` zaczyna kategorię – nazwa wbudowanej (np. `# Internet`) dopisuje do niej, inna tworzy
+  nową kategorię; pytania bez nagłówka trafiają do „Własne pytania”. Linia zaczynająca się od `\` jest dosłowna (np. odpowiedź `\*` to znak „*”, nie znacznik poprawnej).
+- Eksport/import: „Eksportuj własne” i „Eksportuj wszystkie” (z wbudowanymi) zapisują plik .txt w tym formacie,
+  „Importuj z pliku…” dopisuje pytania z pliku do własnych, pomijając powtórki – tak przenosi się pytania między komputerami.
+- „💾 Zapisz do pliku” (w trakcie gry i w podsumowaniu) zapisuje stan gry do pliku .json razem z własnymi pytaniami
+  z jej zakresu; „📂 Wczytaj grę z pliku…” w ustawieniach przywraca pionki, punkty, kolejkę i listę błędów
+  (np. dokończenie gry na następnej lekcji albo na innym komputerze).
+- Podsumowanie: ranking i lista „Do omówienia” (pytania z błędnymi odpowiedziami i poprawną odpowiedzią) do skopiowania.
+- Klawisze: spacja – rzut, A–D – odpowiedź, Enter – dalej, T/N – wyzwanie. Dźwięk i pełny ekran. Gra i własne pytania zapisują się w `localStorage` („Kontynuuj zapisaną grę”).
 
 **Gra „Budżet domowy” (scenariusz 6 harcerskiego tutoringu)**
 - Osobna aplikacja w panelu (kafelek „Budżet domowy”); uczniowie wchodzą na `/budzet` (plik `budzet.html`).
@@ -230,7 +251,7 @@ Testy: `dotnet test` w katalogu `TeacherHelp/`.
   Strona ucznia: `wwwroot/survey.html`.
 - Gra „Budżet domowy”: `Session/BudgetService.cs` (losowanie i wydarzenia, pokryta testami) i `Hubs/BudgetHubs.cs`
   (`/hubs/budget`: `GetView(browserId)`, `Join`, `Claim` (powrót do gry); `/hubs/budget-teacher`). Strony: `budzet.html`, `teacher-budget.js`.
-- Jeden port; krótkie adresy `/ankieta`, `/obwod`, `/budzet`, `/nauczyciel` są przepisywane na pliki z `wwwroot` (`Program.cs`),
+- Jeden port; krótkie adresy `/ankieta`, `/obwod`, `/budzet`, `/wyscig`, `/nauczyciel` są przepisywane na pliki z `wwwroot` (`Program.cs`),
   a `/ankieta/` przekierowuje na `/ankieta` (strony używają ścieżek względnych).
 - Panel nauczyciela: `wwwroot/teacher.html` + moduły ES: `teacher.js` (logowanie, kafelki, przełączanie),
   `teacher-lesson.js`, `teacher-survey.js` (po jednym na aplikację), `teacher-common.js` (API, huby, status połączenia).

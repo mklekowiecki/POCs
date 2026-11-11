@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wyścig do 60</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="race-page">
+  <header>
+    <h1>🏁 Wyścig do 60 <span class="muted race-sub">Gra powtórkowa · informatyka</span></h1>
+    <div class="header-right race-tools">
+      <button id="btn-rules" type="button" class="secondary">Zasady</button>
+      <button id="btn-sound" type="button" class="secondary" aria-pressed="true">🔊 Dźwięk</button>
+      <button id="btn-full" type="button" class="secondary" title="Pełny ekran">⛶</button>
+    </div>
+  </header>
+
+  <main class="race-main">
+    <!-- Ustawienia gry -->
+    <section id="setup" class="hidden">
+      <div class="card race-setup">
+        <div id="resume-box" class="race-resume hidden">
+          <span>Jest zapisana gra: <b id="resume-info"></b></span>
+          <button id="btn-resume" type="button">Kontynuuj zapisaną grę</button>
+        </div>
+        <div class="race-load">
+          <button id="btn-load" type="button" class="secondary">📂 Wczytaj grę z pliku…</button>
+          <input id="game-file" type="file" accept=".json,application/json" class="hidden">
+          <span class="muted">Plik z „Zapisz do pliku” – gra wraca z pionkami, punktami i pytaniami.</span>
+        </div>
+
+        <h2>Gracze lub drużyny</h2>
+        <label class="race-row">Liczba
+          <select id="player-count">
+            <option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option><option>6</option>
+          </select>
+        </label>
+        <div id="player-names" class="race-names"></div>
+
+        <h2>Zakres pytań</h2>
+        <div id="category-list" class="race-cats"></div>
+        <details id="own-box" class="race-own">
+          <summary>Własne pytania (<span id="own-count">0</span>)</summary>
+          <p class="muted">Pytania oddziel pustą linią. Pierwsza linia to treść, kolejne to 2–4 odpowiedzi,
+            poprawną oznacz gwiazdką na początku. Linia <code># Nazwa</code> zaczyna kategorię (nazwa wbudowanej,
+            np. <code># Internet</code>, dopisuje do niej). Własne pytania zapamiętują się w tej przeglądarce;
+            na inny komputer przeniesiesz je eksportem do pliku .txt.</p>
+          <textarea id="own-text" rows="9" spellcheck="false" placeholder="# Moje pytania&#10;&#10;Ile bitów ma jeden bajt?&#10;* 8&#10;4&#10;16&#10;&#10;Który skrót zapisuje plik?&#10;* Ctrl + S&#10;Ctrl + P&#10;Ctrl + Z"></textarea>
+          <div class="race-own-actions">
+            <button id="btn-own-import" type="button" class="secondary">📥 Importuj z pliku…</button>
+            <input id="own-file" type="file" accept=".txt,text/plain" class="hidden">
+            <button id="btn-own-export" type="button" class="secondary">📤 Eksportuj własne</button>
+            <button id="btn-all-export" type="button" class="secondary" title="Wbudowane i własne – np. do wydruku albo przeróbki">📤 Eksportuj wszystkie</button>
+            <span id="own-info" class="muted"></span>
+          </div>
+          <div id="own-error" class="error"></div>
+        </details>
+
+        <h2>Czas na odpowiedź</h2>
+        <label class="race-row">
+          <select id="timer">
+            <option value="0">bez limitu</option>
+            <option value="15">15 s</option>
+            <option value="20">20 s</option>
+            <option value="30" selected>30 s</option>
+            <option value="45">45 s</option>
+            <option value="60">60 s</option>
+          </select>
+          <span class="muted">Brak odpowiedzi w czasie liczy się jak błędna.</span>
+        </label>
+
+        <div id="setup-error" class="error"></div>
+        <button id="btn-start" type="button" class="race-big">Start!</button>
+      </div>
+    </section>
+
+    <!-- Plansza -->
+    <section id="game" class="race-game hidden">
+      <div class="card race-board-wrap">
+        <div id="board" class="race-board" aria-label="Plansza"></div>
+        <div class="race-legend muted">
+          <span><i class="race-mini q">?</i> pytanie</span>
+          <span><i class="race-mini bonus">+2</i> 2 pola do przodu</span>
+          <span><i class="race-mini trap">−3</i> 3 pola do tyłu</span>
+          <span><i class="race-mini again">↻</i> dodatkowy rzut</span>
+          <span><i class="race-mini challenge">⚡</i> wyzwanie</span>
+          <span><i class="race-mini finish">🏁</i> meta</span>
+        </div>
+      </div>
+      <aside class="race-side">
+        <div class="card race-turn">
+          <div class="muted">Teraz gra</div>
+          <div id="turn-name" class="race-turn-name"></div>
+          <div class="race-dice-row">
+            <div id="die" class="race-die" data-v="1" aria-live="polite"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <button id="btn-roll" type="button" class="race-big">🎲 Rzuć <kbd>spacja</kbd></button>
+          </div>
+          <div id="message" class="race-msg" aria-live="polite"></div>
+        </div>
+        <div class="card">
+          <h3 class="race-h3">Wyniki</h3>
+          <ol id="scores" class="race-scores"></ol>
+        </div>
+        <div class="race-side-actions">
+          <button id="btn-save" type="button" class="secondary">💾 Zapisz do pliku</button>
+          <button id="btn-end" type="button" class="danger">Zakończ grę</button>
+        </div>
+      </aside>
+    </section>
+
+    <!-- Podsumowanie -->
+    <section id="summary" class="hidden">
+      <div class="card race-summary">
+        <h2>Podsumowanie gry</h2>
+        <p id="summary-winner" class="race-winner"></p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Miejsce</th><th class="text">Gracz</th><th>Pole</th><th>Punkty</th><th>Dobre</th><th>Błędne</th></tr></thead>
+            <tbody id="summary-body"></tbody>
+          </table>
+        </div>
+        <h3>Do omówienia</h3>
+        <p class="muted">Pytania, na które padła błędna odpowiedź (albo zabrakło czasu) – z poprawną odpowiedzią.</p>
+        <ol id="discuss" class="race-discuss"></ol>
+        <div class="race-summary-actions">
+          <button id="btn-copy" type="button" class="secondary">📋 Kopiuj listę</button>
+          <button id="btn-save-summary" type="button" class="secondary">💾 Zapisz do pliku</button>
+          <span id="copy-info" class="muted"></span>
+          <span class="spacer"></span>
+          <button id="btn-again" type="button">Zagraj ponownie</button>
+          <button id="btn-players" type="button" class="secondary">Zmień graczy</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Pytanie -->
+  <dialog id="dlg-question" class="race-dialog">
+    <div class="race-q">
+      <div class="race-q-head">
+        <span id="q-who" class="race-q-who"></span>
+        <span id="q-kind" class="race-q-kind"></span>
+        <span id="q-cat" class="muted"></span>
+      </div>
+      <div id="q-timer" class="race-timer"><span></span></div>
+      <h2 id="q-text" class="race-q-text"></h2>
+      <div id="q-answers" class="race-answers"></div>
+      <div id="q-feedback" class="race-feedback"></div>
+      <div class="race-q-foot">
+        <button id="btn-next" type="button" class="race-big hidden">Dalej <kbd>Enter</kbd></button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Wyzwanie -->
+  <dialog id="dlg-challenge" class="confirm">
+    <div class="confirm-body">
+      <div class="confirm-badge race-challenge-badge">⚡</div>
+      <h2>Pole wyzwania!</h2>
+      <p id="challenge-who"></p>
+      <p>Podejmujesz ryzyko? Dobra odpowiedź: <b>+3 pola</b>, zła: <b>−3 pola</b>.<br>
+        Bez ryzyka: zwykłe pytanie.</p>
+      <div class="confirm-actions">
+        <button id="btn-ch-no" type="button" class="secondary">Zwykłe pytanie <kbd>N</kbd></button>
+        <button id="btn-ch-yes" type="button">Ryzykuję! <kbd>T</kbd></button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Zasady -->
+  <dialog id="dlg-rules" class="race-dialog race-rules">
+    <div class="race-q">
+      <h2>Zasady</h2>
+      <ol>
+        <li>Gracze (lub drużyny) rzucają kostką po kolei i przesuwają pionek o tyle pól, ile wyrzucili.</li>
+        <li>Na zwykłym polu <b>?</b> odpowiadasz na pytanie jednokrotnego wyboru.
+          Dobrze – zostajesz i dostajesz punkt. Źle – wracasz na pole sprzed rzutu.</li>
+        <li><b>+2</b> – idziesz 2 pola do przodu. <b>−3</b> – cofasz się o 3 pola. <b>↻</b> – rzucasz jeszcze raz.</li>
+        <li><b>⚡ Wyzwanie</b> – możesz zaryzykować: dobra odpowiedź to +3 pola i punkt, zła −3 pola.
+          Możesz też wybrać zwykłe pytanie.</li>
+        <li><b>🏁 Meta (60)</b> – nie trzeba wyrzucić dokładnej liczby. Na mecie czeka pytanie finałowe:
+          dobra odpowiedź wygrywa grę, zła odsyła na pole sprzed rzutu.</li>
+        <li>Jeśli jest limit czasu, brak odpowiedzi liczy się jak błędna.</li>
+      </ol>
+      <p class="muted">Klawisze: <kbd>spacja</kbd> rzut, <kbd>A</kbd>–<kbd>D</kbd> odpowiedź, <kbd>Enter</kbd> dalej,
+        <kbd>T</kbd>/<kbd>N</kbd> wyzwanie. Gra zapisuje się w tej przeglądarce po każdym ruchu;
+        „Zapisz do pliku” pozwala dokończyć ją na innym komputerze.</p>
+      <div class="race-q-foot"><button id="btn-rules-close" type="button">Rozumiem</button></div>
+    </div>
+  </dialog>
+
+  <script src="celebrate.js"></script>
+  <script src="wyscig-pytania.js"></script>
+  <script src="wyscig.js"></script>
+</body>
+</html>

@@ -21,7 +21,7 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 });
 
 // Wszystkie aplikacje na jednym porcie, domyślnie 80 na wszystkich interfejsach – uczniowie wpisują sam adres
-// komputera (podstrony: /ankieta, /obwod, /budzet). Inny port: "Urls" w appsettings.json albo --urls; pod IIS – powiązanie witryny.
+// komputera (podstrony: /ankieta, /obwod, /budzet, /wyscig). Inny port: "Urls" w appsettings.json albo --urls; pod IIS – powiązanie witryny.
 if (string.IsNullOrWhiteSpace(builder.Configuration[WebHostDefaults.ServerUrlsKey]))
     builder.WebHost.UseUrls("http://0.0.0.0:80");
 
@@ -83,6 +83,7 @@ var pages = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     ["/ankieta"] = "/survey.html",
     ["/obwod"] = "/obwod.html",
     ["/budzet"] = "/budzet.html",
+    ["/wyscig"] = "/wyscig.html",
     ["/nauczyciel"] = "/teacher.html",
 };
 app.UseForwardedHeaders();
