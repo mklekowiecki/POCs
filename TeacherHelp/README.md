@@ -58,6 +58,30 @@ działa pod `localhost`, ale uczniowie jej nie widzą. Najprościej przy pierwsz
 New-NetFirewallRule -DisplayName "Teacher Help" -Direction Inbound -Protocol TCP -LocalPort 80 -Action Allow -Profile Private,Domain
 ```
 
+### Linux (serwer w szkole, Raspberry Pi albo VPS w internecie)
+
+Skrypt `deploy/install-linux.sh` (Ubuntu/Debian; na innych dystrybucjach z `dnf`) instaluje aplikację jako usługę
+systemd za nginx. Aplikacja jest publikowana jako *self-contained* – na serwerze nie trzeba instalować .NET.
+
+```bash
+sudo deploy/install-linux.sh                              # sieć lokalna, port 80; zapyta o hasło
+sudo deploy/install-linux.sh --domain lekcja.szkola.pl    # internet: HTTPS z Let's Encrypt (certbot)
+```
+
+- Bez .NET SDK na serwerze: opublikuj na dowolnym komputerze i skopiuj folder razem ze skryptem:
+  `dotnet publish TeacherHelp/TeacherHelp.csproj -c Release -r linux-x64 --self-contained -o paczka`
+  (Raspberry Pi: `-r linux-arm64`), potem `sudo ./install-linux.sh --publish-path paczka`.
+- Inne opcje: `--port 8080`, `--password …`, `--no-nginx` (aplikacja sama słucha na porcie), `--uninstall [--remove-files]`.
+- Pliki: aplikacja w `/opt/teacherhelp`, hasło w `/opt/teacherhelp/appsettings.Production.json`,
+  usługa `teacherhelp` (`journalctl -u teacherhelp -f`), nginx w `/etc/nginx/sites-available/teacherhelp`.
+  Ponowne uruchomienie skryptu aktualizuje aplikację i zachowuje hasło.
+- Aplikacja słucha tylko na `127.0.0.1:5000`; nginx przekazuje WebSockets (SignalR), przyjmuje pliki do 200 MB
+  i podaje nagłówki `X-Forwarded-*` – aplikacja ufa im tylko od proxy na tym samym komputerze.
+- Przy `--domain` panel pokazuje uczniom adres `https://<domena>` (ustawienie `TeacherHelp:PublicUrl`)
+  zamiast adresów kart sieciowych serwera.
+- Logowanie nauczyciela: najwyżej 10 prób na minutę z jednego adresu (potem 429 „Za dużo prób logowania”).
+- **W internecie jeden serwer = jeden nauczyciel**: lekcja, ankieta i gra są wspólne dla całej instancji.
+
 Testy: `dotnet test` w katalogu `TeacherHelp/`.
 
 ## Specyfikacja (ustalona metodą sokratejską)
@@ -184,7 +208,8 @@ Testy: `dotnet test` w katalogu `TeacherHelp/`.
 - Brak powiązania z Veyonem – tożsamością ucznia jest imię i nazwisko, komputer jest nieistotny.
 - Wybór siebie z listy niepołączonych nie jest niczym zabezpieczony – uczeń może kliknąć cudze nazwisko
   (nauczyciel widzi to w tabeli i może użyć „Odłącz”).
-- HTTP bez TLS: hasło nauczyciela idzie po sieci lokalnej otwartym tekstem.
+- HTTP bez TLS: hasło nauczyciela idzie po sieci lokalnej otwartym tekstem (HTTPS tylko przy instalacji
+  na Linuksie z `--domain`).
 - Brak trwałego zapisu i historii sesji (poza ręcznym eksportem i wznowieniem z CSV).
 - Pobieranie plików nie wymaga logowania ucznia – wystarczy znać link (losowy identyfikator), dopóki trwa sesja.
 - Ankieta: „jedna odpowiedź na przeglądarkę” opiera się na identyfikatorze w `localStorage` – wyczyszczenie danych
@@ -226,7 +251,7 @@ Testy: `dotnet test` w katalogu `TeacherHelp/`.
 | PUT    | `/api/teacher/tasks/{n}` `{title?}` | zmień tytuł |
 | POST   | `/api/teacher/students/{id}/disconnect` | odłącz ucznia (postęp zostaje) |
 | DELETE | `/api/teacher/students/{id}` | usuń ucznia |
-| GET    | `/api/teacher/addresses` | adresy tego komputera w sieci (dla uczniów) |
+| GET    | `/api/teacher/addresses` | adresy tego komputera w sieci (dla uczniów); `TeacherHelp:PublicUrl`, jeśli ustawiony |
 | GET    | `/api/teacher/export.csv` | eksport wyników |
 | POST   | `/api/teacher/files` (multipart: `files`, `task?`) | udostępnij pliki (bez `task` = materiały ogólne) |
 | DELETE | `/api/teacher/files/{id}` | usuń plik |

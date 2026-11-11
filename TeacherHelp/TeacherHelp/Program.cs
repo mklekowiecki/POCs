@@ -4,9 +4,11 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.HttpOverrides;
 using TeacherHelp.Hubs;
 using TeacherHelp.Session;
 
@@ -49,7 +51,25 @@ builder.Services
     });
 builder.Services.AddAuthorization();
 
+// Za reverse proxy (nginx na Linuksie): adres ucznia i https bierzemy z nagłówków X-Forwarded-*.
+// Domyślnie ufamy tylko proxy na tym samym komputerze (127.0.0.1/::1), więc bez proxy nic się nie zmienia.
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto);
+
+// Hasło nauczyciela jest jedno – ograniczamy liczbę prób logowania z jednego adresu (ważne, gdy serwer jest w internecie).
+builder.Services.AddRateLimiter(o =>
+{
+    o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    o.AddPolicy("login", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
+});
+
 var app = builder.Build();
+
+// Publiczny adres (np. https://lekcja.szkola.pl), gdy serwer stoi w internecie – panel pokazuje go uczniom
+// zamiast adresów kart sieciowych serwera.
+var publicUrl = app.Configuration["TeacherHelp:PublicUrl"]?.Trim().TrimEnd('/') ?? "";
 
 var teacherPassword = app.Configuration["TeacherHelp:TeacherPassword"] ?? "";
 if (teacherPassword.Length == 0)
@@ -65,6 +85,7 @@ var pages = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     ["/budzet"] = "/budzet.html",
     ["/nauczyciel"] = "/teacher.html",
 };
+app.UseForwardedHeaders();
 app.Use((ctx, next) =>
 {
     var path = ctx.Request.Path.Value ?? "";
@@ -80,6 +101,7 @@ app.UseDefaultFiles();
 app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapHub<StudentHub>("/hubs/student");
 app.MapHub<TeacherHub>("/hubs/teacher");
@@ -97,7 +119,7 @@ teacher.MapPost("/login", async (LoginRequest req, HttpContext ctx) =>
     var identity = new ClaimsIdentity([new Claim(ClaimTypes.Role, "Teacher")], CookieAuthenticationDefaults.AuthenticationScheme);
     await ctx.SignInAsync(new ClaimsPrincipal(identity));
     return Results.NoContent();
-});
+}).RequireRateLimiting("login");
 
 teacher.MapPost("/logout", async (HttpContext ctx) =>
 {
@@ -113,6 +135,7 @@ secured.MapGet("/me", () => Results.NoContent());
 // (nauczyciel zwykle wchodzi przez localhost, więc sam adres z paska przeglądarki nic nie mówi).
 secured.MapGet("/addresses", (HttpRequest request) =>
 {
+    if (publicUrl.Length > 0) return Results.Ok(new[] { publicUrl });
     var port = request.Host.Port is { } p && p != 80 ? $":{p}" : "";
     return Results.Ok(LanAddresses().Select(ip => $"http://{ip}{port}"));
 });

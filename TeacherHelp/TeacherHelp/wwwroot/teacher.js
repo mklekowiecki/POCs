@@ -73,7 +73,9 @@ $("login-form").addEventListener("submit", async ev => {
     body: JSON.stringify({ password: $("password").value }),
   });
   if (!res.ok) {
-    $("login-error").textContent = "Nieprawidłowe hasło.";
+    $("login-error").textContent = res.status === 429
+      ? "Za dużo prób logowania. Spróbuj ponownie za minutę."
+      : "Nieprawidłowe hasło.";
     return;
   }
   $("password").value = "";
