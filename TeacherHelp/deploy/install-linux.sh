@@ -121,7 +121,11 @@ i uruchom ten skrypt z --publish-path paczka."
   trap 'rm -rf "$PUBLISH_PATH"' EXIT
   dotnet publish "$PROJECT" -c Release -r "$RID" --self-contained -o "$PUBLISH_PATH" --nologo -v quiet
 fi
-[[ -x "$PUBLISH_PATH/TeacherHelp" ]] || die "w $PUBLISH_PATH nie ma pliku wykonywalnego TeacherHelp (paczka musi być dla $RID)."
+# Sprawdzamy sam plik, nie prawo do uruchamiania – scp/zip z Windowsa go nie przenosi (nadajemy je niżej).
+if [[ ! -f "$PUBLISH_PATH/TeacherHelp" ]]; then
+  [[ -f "$PUBLISH_PATH/TeacherHelp.exe" ]] && die "$PUBLISH_PATH to paczka dla Windowsa – opublikuj ją z -r $RID --self-contained."
+  die "w $PUBLISH_PATH nie ma pliku TeacherHelp (paczka musi być z dotnet publish -r $RID --self-contained)."
+fi
 
 # ---------------------------------------------------------------- pliki i użytkownik
 step "Kopiowanie plików do $INSTALL_DIR"
