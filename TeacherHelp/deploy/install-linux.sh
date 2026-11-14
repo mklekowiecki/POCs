@@ -102,6 +102,27 @@ if [[ -n "$DOMAIN" ]] && ! command -v certbot >/dev/null; then
   install_packages certbot python3-certbot-nginx
 fi
 
+# Na serwerze mogą działać inne aplikacje – niczego ich nie ruszamy, tylko sprawdzamy, czy nie wejdziemy im w drogę.
+if [[ $USE_NGINX -eq 1 ]]; then
+  # Port aplikacji (za nginx) nie może być zajęty przez inny program (nasza poprzednia wersja jest OK).
+  if ss -ltnpH "sport = :${APP_PORT}" 2>/dev/null | grep -v '"TeacherHelp"' | grep -q .; then
+    die "port ${APP_PORT} zajmuje już inny program – podaj wolny port aplikacji, np. --app-port 5080."
+  fi
+  # Bez --domain nasza strona nie ma własnej nazwy, więc nie może dzielić portu z innymi stronami nginx
+  # (wejścia po samym adresie IP trafiłyby do nich, a nie do nas).
+  if [[ -z "$DOMAIN" ]]; then
+    OTHERS="$(grep -lE "^\s*listen\s+([^;]*:)?${PORT}([^0-9]|$)" /etc/nginx/sites-enabled/* /etc/nginx/conf.d/*.conf 2>/dev/null \
+      | grep -vE "/${NAME}(\.conf)?$" || true)"
+    if [[ -n "$OTHERS" ]]; then
+      die "na porcie ${PORT} nginx ma już inne strony:
+$(echo "$OTHERS" | sed 's/^/  /')
+Nie zmieniam ich. Wybierz jedno:
+  --domain lekcja.twojadomena.pl   (osobna nazwa, np. subdomena wskazująca na ten serwer – ten sam port 80/443)
+  --port 8080                      (osobny port; uczniowie wpisują http://<adres-serwera>:8080)"
+    fi
+  fi
+fi
+
 # ---------------------------------------------------------------- publikacja
 case "$(uname -m)" in
   x86_64) RID=linux-x64 ;;
@@ -248,12 +269,15 @@ server {
 EOF
   if [[ -d /etc/nginx/sites-enabled ]]; then
     ln -sf "$NGINX_SITE" "$NGINX_LINK"
-    # Domyślna strona nginx zajmuje port 80 jako default_server – przy instalacji w sieci lokalnej przeszkadza.
-    if [[ -z "$DOMAIN" && "$PORT" == 80 ]]; then rm -f /etc/nginx/sites-enabled/default; fi
   fi
-  nginx -t
+  # Zła konfiguracja zablokowałaby przeładowanie nginx także innym aplikacjom – wtedy wycofujemy naszą.
+  if ! nginx -t; then
+    rm -f "$NGINX_LINK" "$NGINX_SITE"
+    die "nginx nie przyjął konfiguracji (błąd powyżej) – usunąłem ją, inne strony działają jak wcześniej."
+  fi
   systemctl enable nginx >/dev/null 2>&1 || true
-  systemctl reload nginx 2>/dev/null || systemctl restart nginx
+  # reload, nie restart – nie zrywamy połączeń innych aplikacji.
+  if systemctl is-active --quiet nginx; then systemctl reload nginx; else systemctl start nginx; fi
 
   if [[ -n "$DOMAIN" ]]; then
     step "Certyfikat HTTPS dla $DOMAIN (Let's Encrypt)"

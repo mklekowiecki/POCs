@@ -81,6 +81,9 @@ sudo deploy/install-linux.sh --domain lekcja.szkola.pl    # internet: HTTPS z Le
 - Przy `--domain` panel pokazuje uczniom adres `https://<domena>` (ustawienie `TeacherHelp:PublicUrl`)
   zamiast adresów kart sieciowych serwera.
 - Logowanie nauczyciela: najwyżej 10 prób na minutę z jednego adresu (potem 429 „Za dużo prób logowania”).
+- **Nginx z innymi aplikacjami**: skrypt dodaje tylko własny plik `teacherhelp` i nie zmienia innych stron
+  (nginx jest przeładowywany, nie restartowany). Bez `--domain` nie może dzielić portu z innymi stronami, więc
+  wtedy przerywa instalację – podaj `--domain` (np. subdomena) albo osobny `--port 8080`. Gdy port 5000 jest zajęty: `--app-port 5080`.
 - **W internecie jeden serwer = jeden nauczyciel**: lekcja, ankieta i gra są wspólne dla całej instancji.
 
 Testy: `dotnet test` w katalogu `TeacherHelp/`.
