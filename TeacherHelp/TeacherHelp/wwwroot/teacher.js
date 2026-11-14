@@ -62,6 +62,25 @@ async function leave() {
   route();
 }
 
+// Filtr kategorii na ekranie wyboru (Wszystkie / Narzędzia / Gry / Inne) – zapamiętany w przeglądarce.
+const FILTER_KEY = "teacherhelp.category";
+function applyFilter(filter) {
+  for (const btn of $("category-filter").querySelectorAll("button"))
+    btn.setAttribute("aria-pressed", String(btn.dataset.filter === filter));
+  for (const cat of document.querySelectorAll(".app-category"))
+    cat.classList.toggle("hidden", filter !== "wszystkie" && cat.dataset.category !== filter);
+}
+$("category-filter").addEventListener("click", ev => {
+  const filter = ev.target.closest("button")?.dataset.filter;
+  if (!filter) return;
+  applyFilter(filter);
+  try { localStorage.setItem(FILTER_KEY, filter); } catch { /* bez zapamiętywania */ }
+});
+try {
+  const saved = localStorage.getItem(FILTER_KEY);
+  if (saved && $("category-filter").querySelector(`[data-filter="${saved}"]`)) applyFilter(saved);
+} catch { /* domyślnie wszystkie */ }
+
 setUnauthorizedHandler(leave);
 addEventListener("hashchange", route);
 

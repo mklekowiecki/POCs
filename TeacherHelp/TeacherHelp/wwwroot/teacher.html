@@ -28,39 +28,60 @@
 
     <!-- Wybór aplikacji -->
     <section id="launcher" class="hidden">
-      <h2 class="launcher-title">Wybierz aplikację</h2>
-      <nav class="app-tiles">
-        <a href="#lekcja" class="app-tile">
-          <span class="app-icon" aria-hidden="true">📋</span>
-          <span class="app-name">Lekcja</span>
-          <span class="app-desc">Zadania do odhaczania, postęp uczniów i pliki do pobrania</span>
-          <span id="tile-info-lekcja" class="app-info"></span>
-        </a>
-        <a href="#ankieta" class="app-tile">
-          <span class="app-icon" aria-hidden="true">🐸</span>
-          <span class="app-name">Co kumam?</span>
-          <span class="app-desc">Ankieta na koniec lekcji – uczniowie oceniają tematy w skali 1–5</span>
-          <span id="tile-info-ankieta" class="app-info"></span>
-        </a>
-        <a href="#obwod" class="app-tile">
-          <span class="app-icon" aria-hidden="true">💡</span>
-          <span class="app-name">Obwód elektryczny</span>
-          <span class="app-desc">Symulator do mierzenia napięcia i natężenia – dane do arkusza kalkulacyjnego</span>
-          <span id="tile-info-obwod" class="app-info">Działa bez sesji – wystarczy podać adres</span>
-        </a>
-        <a href="#budzet" class="app-tile">
-          <span class="app-icon" aria-hidden="true">💰</span>
-          <span class="app-name">Budżet domowy</span>
-          <span class="app-desc">Gra: losowanie sytuacji rodziny i wydarzeń przez 3 miesiące – obliczenia w arkuszu kalkulacyjnym</span>
-          <span id="tile-info-budzet" class="app-info"></span>
-        </a>
-        <a href="#wyscig" class="app-tile">
-          <span class="app-icon" aria-hidden="true">🏁</span>
-          <span class="app-name">Wyścig do 60</span>
-          <span class="app-desc">Gra powtórkowa na projektor: kostka, plansza i pytania z informatyki dla graczy lub drużyn</span>
-          <span id="tile-info-wyscig" class="app-info">Działa bez sesji – wystarczy otworzyć</span>
-        </a>
-      </nav>
+      <div class="launcher-head">
+        <h2 class="launcher-title">Wybierz aplikację</h2>
+        <div id="category-filter" class="category-filter" role="group" aria-label="Kategoria">
+          <button type="button" data-filter="wszystkie" aria-pressed="true">Wszystkie</button>
+          <button type="button" data-filter="narzedzia" aria-pressed="false">🛠️ Narzędzia</button>
+          <button type="button" data-filter="gry" aria-pressed="false">🎲 Gry</button>
+          <button type="button" data-filter="inne" aria-pressed="false">🧩 Inne</button>
+        </div>
+      </div>
+      <section class="app-category" data-category="narzedzia" aria-labelledby="cat-narzedzia">
+        <h3 id="cat-narzedzia" class="category-title"><span aria-hidden="true">🛠️</span> Narzędzia</h3>
+        <nav class="app-tiles" aria-label="Narzędzia">
+          <a href="#lekcja" class="app-tile">
+            <span class="app-icon" aria-hidden="true">📋</span>
+            <span class="app-name">Lekcja</span>
+            <span class="app-desc">Zadania do odhaczania, postęp uczniów i pliki do pobrania</span>
+            <span id="tile-info-lekcja" class="app-info"></span>
+          </a>
+          <a href="#ankieta" class="app-tile">
+            <span class="app-icon" aria-hidden="true">🐸</span>
+            <span class="app-name">Co kumam?</span>
+            <span class="app-desc">Ankieta na koniec lekcji – uczniowie oceniają tematy w skali 1–5</span>
+            <span id="tile-info-ankieta" class="app-info"></span>
+          </a>
+        </nav>
+      </section>
+      <section class="app-category" data-category="gry" aria-labelledby="cat-gry">
+        <h3 id="cat-gry" class="category-title"><span aria-hidden="true">🎲</span> Gry</h3>
+        <nav class="app-tiles" aria-label="Gry">
+          <a href="#budzet" class="app-tile">
+            <span class="app-icon" aria-hidden="true">💰</span>
+            <span class="app-name">Budżet domowy</span>
+            <span class="app-desc">Gra: losowanie sytuacji rodziny i wydarzeń przez 3 miesiące – obliczenia w arkuszu kalkulacyjnym</span>
+            <span id="tile-info-budzet" class="app-info"></span>
+          </a>
+          <a href="#wyscig" class="app-tile">
+            <span class="app-icon" aria-hidden="true">🏁</span>
+            <span class="app-name">Wyścig do 60</span>
+            <span class="app-desc">Gra powtórkowa na projektor: kostka, plansza i pytania z informatyki dla graczy lub drużyn</span>
+            <span id="tile-info-wyscig" class="app-info">Działa bez sesji – wystarczy otworzyć</span>
+          </a>
+        </nav>
+      </section>
+      <section class="app-category" data-category="inne" aria-labelledby="cat-inne">
+        <h3 id="cat-inne" class="category-title"><span aria-hidden="true">🧩</span> Inne</h3>
+        <nav class="app-tiles" aria-label="Inne">
+          <a href="#obwod" class="app-tile">
+            <span class="app-icon" aria-hidden="true">💡</span>
+            <span class="app-name">Obwód elektryczny</span>
+            <span class="app-desc">Symulator do mierzenia napięcia i natężenia – dane do arkusza kalkulacyjnego</span>
+            <span id="tile-info-obwod" class="app-info">Działa bez sesji – wystarczy podać adres</span>
+          </a>
+        </nav>
+      </section>
       <p class="muted launcher-hint">Aplikacje działają niezależnie – lekcja, ankieta i gra mogą trwać jednocześnie.</p>
     </section>
 

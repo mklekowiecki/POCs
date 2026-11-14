@@ -164,7 +164,22 @@ button:disabled { opacity: .5; cursor: default; }
 .tile.done .check { transform: scale(1); }
 
 /* Nauczyciel: wybór aplikacji */
-.launcher-title { margin: 8px 0 16px; font-size: 1.3rem; }
+.launcher-title { margin: 0; font-size: 1.3rem; }
+.launcher-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 8px 0 8px; }
+.category-filter { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; background: var(--bar-bg); border-radius: 12px; }
+.category-filter button {
+  background: transparent; color: var(--muted); border: 0; border-radius: 9px; padding: 6px 14px;
+  font-weight: 600; box-shadow: none; cursor: pointer;
+}
+.category-filter button:hover { color: var(--text); }
+.category-filter button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.app-category { margin-top: 20px; }
+.app-category.hidden { display: none; }
+.category-title {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 1rem;
+  text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+}
+.category-title::after { content: ""; flex: 1; height: 1px; background: var(--border); }
 .app-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
 .app-tile {
   display: flex; flex-direction: column; gap: 6px; padding: 20px; min-height: 190px;
