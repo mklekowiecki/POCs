@@ -186,6 +186,28 @@ secured.MapDelete("/students/{id}", (string id, SessionService session) =>
 secured.MapPost("/students/{id}/disconnect", (string id, SessionService session) =>
     session.DisconnectStudent(id) ? Results.NoContent() : Results.NotFound());
 
+secured.MapPut("/students/{id}/category", (string id, CategoryRequest req, SessionService session) =>
+    session.SetCategory(id, req.Category) ? Results.NoContent() : Results.NotFound());
+
+// Lista klasy (CSV: dane ucznia; kategoria A/B/C). Formularz czytamy ręcznie, jak przy imporcie sesji.
+secured.MapPost("/roster", async (HttpRequest request, SessionService session, CancellationToken ct) =>
+{
+    if (!request.HasFormContentType) return Results.BadRequest("Oczekiwano formularza z plikiem.");
+    var form = await request.ReadFormAsync(ct);
+    if (form.Files.Count != 1) return Results.BadRequest("Wybierz jeden plik CSV.");
+    if (form.Files[0].Length > maxImportBytes) return Results.BadRequest("Plik jest za duży jak na listę klasy.");
+    using var buffer = new MemoryStream();
+    await form.Files[0].CopyToAsync(buffer, ct);
+    try
+    {
+        return session.LoadRoster(DecodeCsv(buffer.ToArray())) is { } result ? Results.Ok(result) : Results.Conflict("Brak aktywnej sesji.");
+    }
+    catch (FormatException e)
+    {
+        return Results.BadRequest(e.Message);
+    }
+});
+
 // Formularz czytamy ręcznie (bez bindowania IFormFile), żeby nie wymagać tokenów antiforgery.
 secured.MapPost("/files", async (HttpRequest request, SessionService session, FileStorage storage, CancellationToken ct) =>
 {
@@ -194,6 +216,7 @@ secured.MapPost("/files", async (HttpRequest request, SessionService session, Fi
         limit.MaxRequestBodySize = maxUploadBytes; // domyślnie Kestrel przyjmuje ~30 MB
     var form = await request.ReadFormAsync(ct);
     int? taskNumber = int.TryParse(form["task"], out var n) ? n : null;
+    var categories = form["categories"].ToArray();
     if (form.Files.Count == 0) return Results.BadRequest("Nie wybrano pliku.");
 
     var added = new List<SharedFile>();
@@ -202,11 +225,11 @@ secured.MapPost("/files", async (HttpRequest request, SessionService session, Fi
         var id = Guid.NewGuid().ToString("N");
         await using (var content = upload.OpenReadStream())
             await storage.SaveAsync(id, content, ct);
-        if (session.AddFile(id, upload.FileName, upload.Length, taskNumber) is { } file) added.Add(file);
+        if (session.AddFile(id, upload.FileName, upload.Length, taskNumber, categories) is { } file) added.Add(file);
         else
         {
             storage.Delete(id);
-            return Results.Conflict("Brak aktywnej sesji lub nie ma takiego zadania.");
+            return Results.Conflict("Brak aktywnej sesji, nie ma takiego zadania albo nieznana grupa.");
         }
     }
     return Results.Ok(added);
@@ -283,11 +306,16 @@ secured.MapPost("/budget/import", async (HttpRequest request, BudgetService budg
 secured.MapDelete("/budget/players/{id}", (string id, BudgetService budget) =>
     budget.RemovePlayer(id) ? Results.NoContent() : Results.NotFound());
 
-// Pobieranie plików przez uczniów: dostępne, dopóki trwa sesja. Zawsze jako załącznik (nie otwieramy HTML w przeglądarce).
-app.MapGet("/api/files/{id}", (string id, SessionService session, FileStorage storage) =>
-    session.GetFile(id) is { } file && storage.OpenRead(file.Id) is { } stream
+// Pobieranie plików: dostępne, dopóki trwa sesja. Zawsze jako załącznik (nie otwieramy HTML w przeglądarce).
+// Uczeń podaje swój token – dostaje tylko pliki swojej grupy (link przesłany koledze z innej grupy nie zadziała).
+// Nauczyciel (zalogowany) pobiera każdy plik.
+app.MapGet("/api/files/{id}", (string id, string? token, HttpContext ctx, SessionService session, FileStorage storage) =>
+{
+    var file = ctx.User.Identity?.IsAuthenticated == true ? session.GetFile(id) : session.GetFileForStudent(id, token);
+    return file is not null && storage.OpenRead(file.Id) is { } stream
         ? Results.File(stream, "application/octet-stream", file.Name)
-        : Results.NotFound());
+        : Results.NotFound();
+});
 
 app.Run();
 
@@ -320,6 +348,7 @@ static string DecodeCsv(byte[] bytes)
 record LoginRequest(string? Password);
 record StartRequest(int TaskCount);
 record TaskRequest(string? Title);
+record CategoryRequest(string? Category);
 record SurveyStartRequest(string?[]? Questions, bool Named);
 
 public partial class Program;

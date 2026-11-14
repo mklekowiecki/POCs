@@ -4,8 +4,15 @@ namespace TeacherHelp.Session;
 
 public sealed record TaskItem(int Number, string? Title);
 
-/// <summary>Plik udostępniony przez nauczyciela. TaskNumber == null oznacza materiał ogólny dla całej lekcji.</summary>
-public sealed record SharedFile(string Id, string Name, long Size, int? TaskNumber);
+/// <summary>
+/// Plik udostępniony przez nauczyciela. TaskNumber == null oznacza materiał ogólny dla całej lekcji.
+/// Categories: grupy (A/B/C), które widzą plik; pusta lista = wszyscy uczniowie.
+/// Uczeń dostaje pliki zawsze z pustą listą – nie może po niej poznać swojej grupy.
+/// </summary>
+public sealed record SharedFile(string Id, string Name, long Size, int? TaskNumber, IReadOnlyList<string> Categories)
+{
+    public SharedFile(string id, string name, long size, int? taskNumber) : this(id, name, size, taskNumber, []) { }
+}
 
 public sealed record StudentTaskView(int Number, string? Title, bool Done, IReadOnlyList<SharedFile> Files);
 
@@ -15,16 +22,21 @@ public sealed record StudentChoice(string Id, string Name);
 /// <summary>
 /// Co widzi uczeń. State: "waiting" (brak sesji), "login" (sesja trwa, uczeń niezalogowany), "active".
 /// Disconnected – tylko w stanie "login": uczniowie sesji, za których nikt jeszcze nie wrócił.
+/// RosterOnly – nauczyciel wczytał listę klasy: uczeń tylko wybiera siebie z listy, nie wpisuje imienia.
 /// </summary>
 public sealed record StudentView(
     string State,
     string? Name,
     IReadOnlyList<StudentTaskView> Tasks,
     IReadOnlyList<SharedFile> Files,
-    IReadOnlyList<StudentChoice> Disconnected);
+    IReadOnlyList<StudentChoice> Disconnected,
+    bool RosterOnly = false);
 
-/// <summary>Connected == false: uczeń jest w sesji, ale nie ma otwartej przeglądarki (zamknął ją albo jest z importu CSV).</summary>
-public sealed record StudentRow(string Id, string FirstName, string LastName, string Name, bool Connected, IReadOnlyList<int> Done);
+/// <summary>
+/// Connected == false: uczeń jest w sesji, ale nie ma otwartej przeglądarki (zamknął ją albo jest z importu CSV).
+/// Category: grupa A/B/C albo null (uczeń widzi tylko pliki dla wszystkich).
+/// </summary>
+public sealed record StudentRow(string Id, string FirstName, string LastName, string Name, bool Connected, IReadOnlyList<int> Done, string? Category = null);
 
 public sealed record TaskStat(int Number, int DoneCount, int Percent);
 
@@ -34,9 +46,14 @@ public sealed record Dashboard(
     IReadOnlyList<TaskItem> Tasks,
     IReadOnlyList<StudentRow> Students,
     IReadOnlyList<TaskStat> Stats,
-    IReadOnlyList<SharedFile> Files);
+    IReadOnlyList<SharedFile> Files,
+    bool RosterOnly = false);
 
-public enum JoinStatus { Ok, NoSession, InvalidName, NameTaken, NotAvailable }
+/// <summary>RosterOnly: wczytano listę klasy, więc nie można dopisać się ręcznie – tylko wybrać siebie z listy.</summary>
+public enum JoinStatus { Ok, NoSession, InvalidName, NameTaken, NotAvailable, RosterOnly }
+
+/// <summary>Wynik wczytania listy klasy: ilu uczniów dopisano, a ilu już było w sesji (dostali tylko kategorię).</summary>
+public sealed record RosterResult(int Added, int Matched);
 
 public sealed record JoinResult(JoinStatus Status, string? Token = null);
 
@@ -59,11 +76,16 @@ public sealed class SessionService
         /// <summary>Otwarte połączenia (karty przeglądarki) ucznia. Puste = uczeń rozłączony, można go wybrać z listy.</summary>
         public HashSet<string> Connections { get; } = [];
         public bool Online => Connections.Count > 0;
-        public string FirstName { get; } = firstName;
-        public string LastName { get; } = lastName;
+        /// <summary>Uczniowie z listy klasy mają całe „Dane ucznia” w FirstName i puste LastName (nie dzielimy napisu).</summary>
+        public string FirstName { get; set; } = firstName;
+        public string LastName { get; set; } = lastName;
         public string Name => $"{FirstName} {LastName}".Trim();
         public SortedSet<int> Done { get; } = [];
+        public string? Category { get; set; }
     }
+
+    /// <summary>Grupy, do których nauczyciel może przypisać uczniów i pliki.</summary>
+    public static readonly IReadOnlyList<string> Categories = ["A", "B", "C"];
 
     private readonly Lock _lock = new();
     private readonly List<TaskItem> _tasks = [];
@@ -71,6 +93,8 @@ public sealed class SessionService
     private readonly List<Student> _students = [];
     private readonly List<SharedFile> _files = [];
     private bool _active;
+    /// <summary>Wczytano listę klasy: uczniowie tylko wybierają siebie z listy (inaczej ktoś mógłby obejść podział na grupy).</summary>
+    private bool _rosterOnly;
     private long _version;
 
     public event Action? Changed;
@@ -82,6 +106,7 @@ public sealed class SessionService
         {
             if (_active) return false;
             _active = true;
+            _rosterOnly = false;
             _tasks.Clear();
             _students.Clear();
             _files.Clear();
@@ -98,6 +123,7 @@ public sealed class SessionService
         {
             if (!_active) return false;
             _active = false;
+            _rosterOnly = false;
             _tasks.Clear();
             _students.Clear();
             _files.Clear();
@@ -134,13 +160,24 @@ public sealed class SessionService
     }
 
     /// <summary>Rejestruje plik (zapisany już przez wywołującego pod <paramref name="id"/>). Null, gdy brak sesji lub zadania.</summary>
-    public SharedFile? AddFile(string id, string? name, long size, int? taskNumber)
+    /// <param name="categories">Grupy, które zobaczą plik (A/B/C); puste lub null = wszyscy. Nieznana grupa = null.</param>
+    public SharedFile? AddFile(string id, string? name, long size, int? taskNumber, IEnumerable<string?>? categories = null)
     {
+        var groups = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (var c in categories ?? [])
+        {
+            if (string.IsNullOrWhiteSpace(c)) continue;
+            if (NormalizeCategory(c) is not { } g) return null;
+            groups.Add(g);
+        }
+        // Wszystkie trzy grupy to to samo co „dla wszystkich” – a taki plik zobaczy też uczeń bez grupy.
+        if (groups.Count == Categories.Count) groups.Clear();
+
         SharedFile file;
         lock (_lock)
         {
             if (!_active || taskNumber is < 1 || taskNumber > _tasks.Count) return null;
-            file = new SharedFile(id, NormalizeFileName(name), size, taskNumber);
+            file = new SharedFile(id, NormalizeFileName(name), size, taskNumber, groups.ToList());
             _files.Add(file);
             _version++;
         }
@@ -159,9 +196,119 @@ public sealed class SessionService
         return true;
     }
 
+    /// <summary>Plik dla nauczyciela (bez sprawdzania grup).</summary>
     public SharedFile? GetFile(string id)
     {
         lock (_lock) return _active ? _files.FirstOrDefault(f => f.Id == id) : null;
+    }
+
+    /// <summary>Plik dla ucznia o danym tokenie – tylko jeśli uczeń jest w sesji i plik jest dla jego grupy.</summary>
+    public SharedFile? GetFileForStudent(string id, string? token)
+    {
+        lock (_lock)
+        {
+            if (!_active || FindByToken(token) is not { } student) return null;
+            return _files.FirstOrDefault(f => f.Id == id && Visible(f, student));
+        }
+    }
+
+    private static bool Visible(SharedFile file, Student student) =>
+        file.Categories.Count == 0 || student.Category is { } c && file.Categories.Contains(c);
+
+    /// <summary>Nauczyciel zmienia grupę ucznia (null = bez grupy). False, gdy nie ma ucznia albo grupa jest nieznana.</summary>
+    public bool SetCategory(string id, string? category)
+    {
+        var normalized = NormalizeCategory(category);
+        if (normalized is null && !string.IsNullOrWhiteSpace(category)) return false;
+        lock (_lock)
+        {
+            if (!_active || _students.FirstOrDefault(s => s.Id == id) is not { } student) return false;
+            student.Category = normalized;
+            _version++;
+        }
+        Changed?.Invoke();
+        return true;
+    }
+
+    /// <summary>
+    /// Wczytuje listę klasy (CSV: dane ucznia; kategoria). Uczniowie już obecni w sesji dostają kategorię
+    /// (dopasowanie po słowach bez względu na kolejność i wielkość liter, więc „Kowalski Jan” = „Jan Kowalski”),
+    /// pozostali są dopisani jako rozłączeni – wybiorą siebie z listy. Od tej chwili nie można dopisać się ręcznie.
+    /// Null, gdy brak sesji; <see cref="FormatException"/> z opisem dla nauczyciela, gdy plik jest błędny.
+    /// </summary>
+    public RosterResult? LoadRoster(string csv)
+    {
+        var roster = ParseRoster(csv);
+        int added = 0, matched = 0;
+        lock (_lock)
+        {
+            if (!_active) return null;
+            var taken = new HashSet<Student>();
+            foreach (var (name, category) in roster)
+            {
+                var existing = _students.FirstOrDefault(s => !taken.Contains(s) && SameName(s.Name, name));
+                if (existing is null)
+                {
+                    _students.Add(existing = new Student(NewId(), null, name, ""));
+                    added++;
+                }
+                else
+                {
+                    (existing.FirstName, existing.LastName) = (name, "");
+                    matched++;
+                }
+                existing.Category = category;
+                taken.Add(existing);
+            }
+            _rosterOnly = true;
+            _version++;
+        }
+        Changed?.Invoke();
+        return new RosterResult(added, matched);
+    }
+
+    private static List<(string Name, string? Category)> ParseRoster(string csv)
+    {
+        csv = csv.TrimStart('﻿');
+        var firstLine = csv.Split('\n', 2)[0];
+        var separator = firstLine.Contains(';') ? ';' : firstLine.Contains('\t') ? '\t' : ',';
+        var records = ParseCsv(csv, separator).Where(r => r.Any(f => f.Trim().Length > 0)).ToList();
+        // Nagłówek („Dane ucznia;Kategoria”) jest opcjonalny: rozpoznajemy go po tym, że w drugiej kolumnie nie ma grupy.
+        if (records.Count > 0 && (records[0][0].Trim().Equals("Dane ucznia", StringComparison.OrdinalIgnoreCase)
+            || NormalizeCategory(records[0].ElementAtOrDefault(1)) is null && records[0].ElementAtOrDefault(1)?.Trim() is { Length: > 1 }))
+            records.RemoveAt(0);
+        if (records.Count == 0) throw new FormatException("Lista uczniów jest pusta.");
+
+        var result = new List<(string Name, string? Category)>();
+        foreach (var record in records)
+        {
+            var raw = Unescape(record[0].Trim());
+            var name = NormalizeName(raw)
+                ?? throw new FormatException(raw.Length == 0
+                    ? "Wiersz bez danych ucznia (pierwsza kolumna jest pusta)."
+                    : $"„{raw[..Math.Min(raw.Length, 50)]}” – za długie dane ucznia (maksymalnie {MaxNameLength} znaków).");
+            var rawCategory = record.ElementAtOrDefault(1)?.Trim() ?? "";
+            var category = NormalizeCategory(rawCategory);
+            if (category is null && rawCategory.Length > 0)
+                throw new FormatException($"„{name}”: nieznana kategoria „{rawCategory}” (dozwolone: {string.Join(", ", Categories)}).");
+            if (result.Any(r => SameName(r.Name, name)))
+                throw new FormatException($"Uczeń „{name}” występuje na liście więcej niż raz.");
+            result.Add((name, category));
+        }
+        return result;
+    }
+
+    /// <summary>Te same słowa bez względu na kolejność i wielkość liter („Kowalski Jan” = „jan kowalski”).</summary>
+    private static bool SameName(string a, string b)
+    {
+        static string Key(string n) => string.Join(' ', n.ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries).Order(StringComparer.Ordinal));
+        return Key(a) == Key(b);
+    }
+
+    private static string? NormalizeCategory(string? category)
+    {
+        var c = category?.Trim().ToUpperInvariant();
+        return c is not null && Categories.Contains(c) ? c : null;
     }
 
     /// <summary>
@@ -178,6 +325,7 @@ public sealed class SessionService
         lock (_lock)
         {
             if (!_active) return new JoinResult(JoinStatus.NoSession);
+            if (_rosterOnly) return new JoinResult(JoinStatus.RosterOnly);
             var name = $"{first} {last}";
             var existing = _students.FirstOrDefault(s => string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase));
             if (existing is { Online: true }) return new JoinResult(JoinStatus.NameTaken);
@@ -299,12 +447,14 @@ public sealed class SessionService
                     .Select(s => new StudentChoice(s.Id, s.Name))
                     .OrderBy(c => c.Name, StringComparer.CurrentCultureIgnoreCase)
                     .ToList();
-                return new StudentView("login", null, [], [], disconnected);
+                return new StudentView("login", null, [], [], disconnected, _rosterOnly);
             }
+            // Grup plików nie wysyłamy – uczeń nie powinien po nich poznać swojej grupy.
+            var files = _files.Where(f => Visible(f, student)).Select(f => f with { Categories = [] }).ToList();
             var tasks = _tasks.Select(t => new StudentTaskView(
                 t.Number, t.Title, student.Done.Contains(t.Number),
-                _files.Where(f => f.TaskNumber == t.Number).ToList())).ToList();
-            return new StudentView("active", student.Name, tasks, _files.Where(f => f.TaskNumber is null).ToList(), []);
+                files.Where(f => f.TaskNumber == t.Number).ToList())).ToList();
+            return new StudentView("active", student.Name, tasks, files.Where(f => f.TaskNumber is null).ToList(), [], _rosterOnly);
         }
     }
 
@@ -312,14 +462,14 @@ public sealed class SessionService
     {
         lock (_lock)
         {
-            var students = _students.Select(s => new StudentRow(s.Id, s.FirstName, s.LastName, s.Name, s.Online, s.Done.ToList())).ToList();
+            var students = _students.Select(s => new StudentRow(s.Id, s.FirstName, s.LastName, s.Name, s.Online, s.Done.ToList(), s.Category)).ToList();
             var stats = _tasks.Select(t =>
             {
                 var done = _students.Count(s => s.Done.Contains(t.Number));
                 var percent = _students.Count == 0 ? 0 : (int)Math.Round(100.0 * done / _students.Count);
                 return new TaskStat(t.Number, done, percent);
             }).ToList();
-            return new Dashboard(_version, _active, _tasks.ToList(), students, stats, _files.ToList());
+            return new Dashboard(_version, _active, _tasks.ToList(), students, stats, _files.ToList(), _rosterOnly);
         }
     }
 
@@ -330,8 +480,11 @@ public sealed class SessionService
     public string ExportCsv()
     {
         var dashboard = GetDashboard();
+        // Kolumna „Kategoria” tylko przy podziale na grupy – stare eksporty i lekcje bez grup wyglądają jak dawniej.
+        var withCategory = dashboard.RosterOnly || dashboard.Students.Any(s => s.Category is not null);
         var sb = new StringBuilder();
         sb.Append("Imię;Nazwisko");
+        if (withCategory) sb.Append(";Kategoria");
         foreach (var t in dashboard.Tasks)
             sb.Append(';').Append(CsvField(t.Title is null ? $"Zadanie {t.Number}" : $"{t.Number}. {t.Title}"));
         sb.AppendLine();
@@ -339,11 +492,13 @@ public sealed class SessionService
         foreach (var s in dashboard.Students)
         {
             sb.Append(CsvField(s.FirstName)).Append(';').Append(CsvField(s.LastName));
+            if (withCategory) sb.Append(';').Append(s.Category);
             foreach (var t in dashboard.Tasks) sb.Append(';').Append(s.Done.Contains(t.Number) ? "x" : "");
             sb.AppendLine();
         }
 
         sb.Append("Procent;");
+        if (withCategory) sb.Append(';');
         foreach (var st in dashboard.Stats) sb.Append(';').Append(st.Percent).Append('%');
         sb.AppendLine();
         return sb.ToString();
@@ -357,11 +512,12 @@ public sealed class SessionService
     /// </summary>
     public bool Import(string csv)
     {
-        var (tasks, students) = ParseImport(csv);
+        var (tasks, students, rosterOnly) = ParseImport(csv);
         lock (_lock)
         {
             if (_active) return false;
             _active = true;
+            _rosterOnly = rosterOnly;
             _tasks.Clear();
             _tasks.AddRange(tasks);
             _students.Clear();
@@ -373,7 +529,7 @@ public sealed class SessionService
         return true;
     }
 
-    private static (List<TaskItem> Tasks, List<Student> Students) ParseImport(string csv)
+    private static (List<TaskItem> Tasks, List<Student> Students, bool RosterOnly) ParseImport(string csv)
     {
         csv = csv.TrimStart('\uFEFF');
         // Polski Excel zapisuje „;”, ale po zapisaniu w innych ustawieniach regionalnych może być „,” lub tabulator.
@@ -389,10 +545,13 @@ public sealed class SessionService
         if (nameColumns == 0)
             throw new FormatException("Brak kolumn „Imię” i „Nazwisko” w pierwszym wierszu.");
 
-        var taskCount = header.Count - nameColumns;
+        // Eksport lekcji z podziałem na grupy ma po nazwisku kolumnę „Kategoria” – wtedy wraca też tryb listy klasy.
+        var withCategory = header.ElementAtOrDefault(nameColumns)?.Trim() == "Kategoria";
+        var firstTask = nameColumns + (withCategory ? 1 : 0);
+        var taskCount = header.Count - firstTask;
         if (taskCount < 1) throw new FormatException("W pliku nie ma żadnych zadań.");
         if (taskCount > MaxTasks) throw new FormatException($"Za dużo zadań (maksymalnie {MaxTasks}).");
-        var tasks = header.Skip(nameColumns).Select((h, i) => new TaskItem(i + 1, ParseTaskTitle(h, i + 1))).ToList();
+        var tasks = header.Skip(firstTask).Select((h, i) => new TaskItem(i + 1, ParseTaskTitle(h, i + 1))).ToList();
 
         var students = new List<Student>();
         foreach (var record in records.Skip(1))
@@ -413,12 +572,19 @@ public sealed class SessionService
             var student = new Student(NewId(), null, first, last);
             if (students.Any(s => string.Equals(s.Name, student.Name, StringComparison.OrdinalIgnoreCase)))
                 throw new FormatException($"Uczeń „{student.Name}” występuje w pliku więcej niż raz.");
+            if (withCategory)
+            {
+                var rawCategory = record.ElementAtOrDefault(nameColumns)?.Trim() ?? "";
+                student.Category = NormalizeCategory(rawCategory);
+                if (student.Category is null && rawCategory.Length > 0)
+                    throw new FormatException($"„{student.Name}”: nieznana kategoria „{rawCategory}” (dozwolone: {string.Join(", ", Categories)}).");
+            }
             for (var i = 0; i < taskCount; i++)
-                if (record.ElementAtOrDefault(nameColumns + i)?.Trim() is { Length: > 0 })
+                if (record.ElementAtOrDefault(firstTask + i)?.Trim() is { Length: > 0 })
                     student.Done.Add(i + 1);
             students.Add(student);
         }
-        return (tasks, students);
+        return (tasks, students, withCategory);
     }
 
     private static string? ParseTaskTitle(string header, int number)

@@ -13,9 +13,11 @@ function storageSet(key, value) {
 const $ = id => document.getElementById(id);
 
 function fileLinks(files) {
+  // Token ucznia w adresie: serwer wydaje tylko pliki dla jego grupy.
+  const token = encodeURIComponent(storageGet(TOKEN_KEY) ?? "");
   return files.map(f => {
     const a = document.createElement("a");
-    a.href = `api/files/${encodeURIComponent(f.id)}`;
+    a.href = `api/files/${encodeURIComponent(f.id)}?token=${token}`;
     a.download = f.name;
     a.textContent = `📄 ${f.name}`;
     const li = document.createElement("li");
@@ -90,7 +92,7 @@ function render(view, sentToken) {
       $("last-name").value = storageGet(LAST_NAME_KEY) ?? "";
       $("reconnect-error").textContent = "";
     }
-    renderReconnect(view.disconnected);
+    renderReconnect(view.disconnected, view.rosterOnly);
     show("login");
     return;
   }
@@ -134,9 +136,13 @@ function render(view, sentToken) {
 }
 
 // Powrót do sesji (np. wznowionej przez nauczyciela z CSV): lista uczniów, za których nikt jeszcze nie wrócił.
-function renderReconnect(students) {
+// Przy wczytanej liście klasy uczeń tylko wybiera siebie z listy – formularz z imieniem jest ukryty.
+function renderReconnect(students, rosterOnly) {
   const returning = students.length > 0;
-  $("reconnect").classList.toggle("hidden", !returning);
+  $("reconnect").classList.toggle("hidden", !returning && !rosterOnly);
+  $("reconnect-title").textContent = rosterOnly ? "Wybierz siebie z listy" : "Wracasz na lekcję? Wybierz siebie";
+  $("roster-empty").classList.toggle("hidden", !rosterOnly || returning);
+  $("join").classList.toggle("hidden", !!rosterOnly);
   $("join-hint").classList.toggle("hidden", !returning);
   $("join-title").textContent = returning ? "Pierwszy raz na tej lekcji?" : "Podaj imię i nazwisko";
   $("reconnect-list").replaceChildren(...students.map(s => {
@@ -242,6 +248,8 @@ $("login-form").addEventListener("submit", async ev => {
         storageSet(FIRST_NAME_KEY, firstName);
         storageSet(LAST_NAME_KEY, lastName);
         break;
+      case "RosterOnly":
+        break; // nauczyciel właśnie wczytał listę – odświeżenie pokaże wybór z listy
       case "NameTaken":
         $("login-error").textContent = "Ktoś o tym imieniu i nazwisku już jest na lekcji. Jeśli to Ty – poproś nauczyciela o odłączenie.";
         return;

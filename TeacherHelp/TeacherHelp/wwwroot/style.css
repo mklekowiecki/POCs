@@ -261,6 +261,10 @@ td.actions button { padding: 2px 8px; font-size: .8rem; }
 .files-panel summary { cursor: pointer; font-weight: 600; }
 .files-panel .upload { justify-content: flex-start; margin-top: 10px; }
 .teacher-files { margin-top: 8px; }
+.files-panel .groups { display: inline-flex; gap: 8px; align-items: center; }
+.files-panel .groups label { display: inline-flex; gap: 3px; align-items: center; }
+.files-panel code { font-size: .85em; }
+td.category select { padding: 2px 4px; font-size: .85rem; }
 .teacher-files li { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .teacher-files button { padding: 2px 8px; font-size: .8rem; }
 select { font: inherit; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); }

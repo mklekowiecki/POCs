@@ -131,10 +131,30 @@
             <input id="upload-input" type="file" multiple required>
             <label for="upload-task">do</label>
             <select id="upload-task"></select>
+            <span class="groups" title="Bez zaznaczenia plik widzą wszyscy uczniowie">dla grup:
+              <label><input type="checkbox" name="upload-category" value="A"> A</label>
+              <label><input type="checkbox" name="upload-category" value="B"> B</label>
+              <label><input type="checkbox" name="upload-category" value="C"> C</label>
+            </span>
             <button type="submit">Udostępnij</button>
           </form>
           <div id="upload-error" class="error"></div>
           <ul id="files-list" class="files teacher-files"></ul>
+          <p class="muted">Bez zaznaczonej grupy plik widzą wszyscy. Plik dla grup A/B/C widzą tylko uczniowie tych grup
+            (uczeń nie widzi, do której grupy należy).</p>
+        </details>
+        <details id="roster-panel" class="files-panel">
+          <summary>Lista klasy i grupy <span id="roster-state" class="muted"></span></summary>
+          <form id="roster-form" class="inline upload">
+            <input id="roster-input" type="file" accept=".csv,.txt,text/csv" required>
+            <button type="submit">Wczytaj listę</button>
+          </form>
+          <div id="roster-error" class="error"></div>
+          <div id="roster-result" class="muted"></div>
+          <p class="muted">Plik CSV z dwiema kolumnami: <b>Dane ucznia</b> i <b>Kategoria</b> (A, B lub C), np.
+            <code>Kowalski Jan;A</code>. Uczniowie wybiorą siebie z listy – po wczytaniu nie da się już wpisać nazwiska ręcznie.
+            Kto już jest na lekcji, dostanie grupę (kolejność imienia i nazwiska nie ma znaczenia).
+            Grupę ucznia można zmienić w tabeli poniżej.</p>
         </details>
         <div id="stats" class="stats"></div>
         <div class="table-wrap">

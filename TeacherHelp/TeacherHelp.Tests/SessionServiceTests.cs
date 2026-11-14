@@ -373,4 +373,122 @@ public class SessionServiceTests
         Assert.Throws<FormatException>(() => s.Import(csv));
         Assert.False(s.GetDashboard().Active);
     }
+
+    private const string Roster = "﻿Dane ucznia;Kategoria\r\nKowalski Jan;A\r\nNowak Ala;b\r\nWiśniewska Ola;C\r\n";
+
+    [Fact]
+    public void Roster_adds_disconnected_students_and_disables_typing_a_name()
+    {
+        var s = new SessionService();
+        Assert.Null(s.LoadRoster(Roster)); // brak sesji
+        s.Start(1);
+        Assert.Equal(new RosterResult(3, 0), s.LoadRoster(Roster));
+
+        var d = s.GetDashboard();
+        Assert.True(d.RosterOnly);
+        Assert.Equal(["Kowalski Jan", "Nowak Ala", "Wiśniewska Ola"], d.Students.Select(st => st.Name));
+        Assert.Equal(["A", "B", "C"], d.Students.Select(st => st.Category));
+        Assert.All(d.Students, st => Assert.False(st.Connected));
+
+        var view = s.GetStudentView(null);
+        Assert.True(view.RosterOnly);
+        Assert.Equal(3, view.Disconnected.Count);
+        Assert.Equal(JoinStatus.RosterOnly, s.Join("Ktoś", "Obcy", C()).Status);
+    }
+
+    [Fact]
+    public void Roster_matches_students_already_in_lesson_regardless_of_word_order()
+    {
+        var s = new SessionService();
+        s.Start(2);
+        var jan = s.Join("jan", "KOWALSKI", C()).Token;
+        s.Toggle(jan, 2);
+        s.Join("Spoza", "Listy", C());
+
+        Assert.Equal(new RosterResult(2, 1), s.LoadRoster(Roster));
+        var d = s.GetDashboard();
+        Assert.Equal(4, d.Students.Count);
+        var row = d.Students.Single(st => st.Name == "Kowalski Jan");
+        Assert.Equal(("A", true), (row.Category, row.Connected));
+        Assert.Equal([2], row.Done);
+        Assert.Null(d.Students.Single(st => st.Name == "Spoza Listy").Category);
+        Assert.Equal("Kowalski Jan", s.GetStudentView(jan).Name);
+    }
+
+    [Fact]
+    public void Student_sees_only_files_of_own_group_without_learning_the_group()
+    {
+        var s = new SessionService();
+        s.Start(1);
+        s.LoadRoster("Kowalski Jan,A\nNowak Ala,B\n"); // bez nagłówka, przecinek
+        var view = s.GetStudentView(null);
+        var jan = s.Claim(view.Disconnected.Single(c => c.Name == "Kowalski Jan").Id, C()).Token;
+        var ala = s.Claim(view.Disconnected.Single(c => c.Name == "Nowak Ala").Id, C()).Token;
+
+        s.AddFile("all", "wspolne.pdf", 1, null);
+        s.AddFile("a", "grupa-a.pdf", 1, null, ["A"]);
+        s.AddFile("bc", "grupa-bc.pdf", 1, 1, ["b", "C"]);
+        Assert.Null(s.AddFile("x", "x.pdf", 1, null, ["D"]));
+        Assert.Equal(["A"], s.GetDashboard().Files.Single(f => f.Id == "a").Categories);
+        Assert.Empty(s.AddFile("abc", "abc.pdf", 1, null, ["A", "B", "C"])!.Categories); // wszystkie grupy = wszyscy
+
+        var janView = s.GetStudentView(jan);
+        Assert.Equal(["wspolne.pdf", "grupa-a.pdf", "abc.pdf"], janView.Files.Select(f => f.Name));
+        Assert.Empty(janView.Tasks[0].Files);
+        Assert.All(janView.Files, f => Assert.Empty(f.Categories));
+
+        var alaView = s.GetStudentView(ala);
+        Assert.Equal(["wspolne.pdf", "abc.pdf"], alaView.Files.Select(f => f.Name));
+        Assert.Equal(["grupa-bc.pdf"], alaView.Tasks[0].Files.Select(f => f.Name));
+
+        Assert.NotNull(s.GetFileForStudent("a", jan));
+        Assert.Null(s.GetFileForStudent("a", ala));
+        Assert.Null(s.GetFileForStudent("all", null));
+        Assert.Null(s.GetFileForStudent("all", "nieznany-token"));
+        Assert.NotNull(s.GetFile("a")); // nauczyciel
+
+        var alaId = s.GetDashboard().Students.Single(st => st.Name == "Nowak Ala").Id;
+        Assert.True(s.SetCategory(alaId, "a"));
+        Assert.NotNull(s.GetFileForStudent("a", ala));
+        Assert.False(s.SetCategory(alaId, "Z"));
+        Assert.True(s.SetCategory(alaId, null));
+        Assert.Null(s.GetFileForStudent("a", ala));
+        Assert.NotNull(s.GetFileForStudent("all", ala));
+    }
+
+    [Fact]
+    public void Export_keeps_groups_and_import_restores_roster_mode()
+    {
+        var source = new SessionService();
+        source.Start(1);
+        source.LoadRoster(Roster);
+        var csv = source.ExportCsv();
+        Assert.StartsWith("Imię;Nazwisko;Kategoria;Zadanie 1", csv);
+
+        var s = new SessionService();
+        Assert.True(s.Import(csv));
+        var d = s.GetDashboard();
+        Assert.True(d.RosterOnly);
+        Assert.Equal(["A", "B", "C"], d.Students.Select(st => st.Category));
+        Assert.Equal(source.ExportCsv(), s.ExportCsv());
+
+        s.End();
+        s.Start(1);
+        Assert.False(s.GetDashboard().RosterOnly);
+        Assert.Equal(JoinStatus.Ok, s.Join("Ala", "Nowak", C()).Status);
+    }
+
+    [Theory]
+    [InlineData("Dane ucznia;Kategoria\n")]
+    [InlineData("Kowalski Jan;D\n")]
+    [InlineData("Kowalski Jan;A\njan kowalski;B\n")]
+    [InlineData(";A\n")]
+    public void Roster_rejects_invalid_files_without_changes(string csv)
+    {
+        var s = new SessionService();
+        s.Start(1);
+        Assert.Throws<FormatException>(() => s.LoadRoster(csv));
+        Assert.False(s.GetDashboard().RosterOnly);
+        Assert.Empty(s.GetDashboard().Students);
+    }
 }

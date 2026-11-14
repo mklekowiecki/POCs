@@ -17,6 +17,10 @@ function formatSize(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+function groupsLabel(categories) {
+  return categories.length ? `grupa ${categories.join(", ")}` : "wszyscy";
+}
+
 function renderFiles(d) {
   $("files-count").textContent = d.files.length;
 
@@ -34,7 +38,7 @@ function renderFiles(d) {
     const target = f.taskNumber == null ? "materiały ogólne" : taskLabel(tasksByNumber.get(f.taskNumber));
     return el("li", {},
       el("a", { href: `api/files/${encodeURIComponent(f.id)}`, download: f.name, textContent: f.name }),
-      el("span", { className: "muted", textContent: ` ${formatSize(f.size)} · ${target} ` }),
+      el("span", { className: "muted", textContent: ` ${formatSize(f.size)} · ${target} · ${groupsLabel(f.categories)} ` }),
       remove);
   }));
 }
@@ -57,6 +61,14 @@ function render(d) {
 
   renderFiles(d);
 
+  // Kolumna „Grupa” tylko przy podziale na grupy (wczytana lista klasy albo ktoś ma już grupę).
+  const groups = d.rosterOnly || d.students.some(s => s.category);
+  const counts = ["A", "B", "C"].map(c => `${c}: ${d.students.filter(s => s.category === c).length}`);
+  const noGroup = d.students.filter(s => !s.category).length;
+  $("roster-state").textContent = groups
+    ? `(${counts.join(" · ")}${noGroup ? ` · bez grupy: ${noGroup}` : ""})`
+    : "(nie wczytano)";
+
   const n = d.students.length;
   const disconnected = d.students.filter(s => !s.connected).length;
   $("lesson-summary").textContent = `Uczniów: ${n}` + (disconnected ? ` (niepołączonych: ${disconnected})` : "");
@@ -77,6 +89,7 @@ function render(d) {
 
   $("lesson-thead").replaceChildren(el("tr", {},
     el("th", { textContent: "Uczeń" }),
+    ...(groups ? [el("th", { textContent: "Grupa", title: "Uczeń widzi tylko pliki swojej grupy i pliki dla wszystkich" })] : []),
     ...d.tasks.map(t => {
       const th = el("th", { className: "task", textContent: t.number, title: t.title ?? "Kliknij, aby nadać tytuł" });
       th.addEventListener("click", () => rename(t));
@@ -100,11 +113,28 @@ function render(d) {
     if (!s.connected) name.append(el("span", { className: "badge", textContent: "niepołączony" }));
     return el("tr", {},
       name,
+      ...(groups ? [categoryCell(s)] : []),
       ...d.tasks.map(t => done.has(t.number)
         ? el("td", { className: "yes", textContent: "✓" })
         : el("td")),
       actions);
   }));
+}
+
+function categoryCell(s) {
+  const select = el("select", { title: `Grupa: ${s.name}` },
+    el("option", { value: "", textContent: "—" }),
+    ...["A", "B", "C"].map(c => el("option", { value: c, textContent: c })));
+  select.value = s.category ?? "";
+  select.addEventListener("change", async () => {
+    try {
+      await api("PUT", `api/teacher/students/${encodeURIComponent(s.id)}/category`, { category: select.value || null });
+    } catch (e) {
+      alert(e.message);
+      select.value = s.category ?? "";
+    }
+  });
+  return el("td", { className: "category" }, select);
 }
 
 async function rename(t) {
@@ -175,6 +205,8 @@ $("upload-form").addEventListener("submit", async ev => {
   const form = new FormData();
   for (const file of input.files) form.append("files", file);
   form.append("task", $("upload-task").value);
+  const checked = [...document.querySelectorAll('input[name="upload-category"]:checked')];
+  for (const box of checked) form.append("categories", box.value);
   const button = ev.submitter;
   button.disabled = true;
   button.textContent = "Wysyłanie…";
@@ -184,11 +216,31 @@ $("upload-form").addEventListener("submit", async ev => {
     if (res.status === 413) throw new Error("Plik jest za duży (limit 200 MB).");
     if (!res.ok) throw new Error(await errorText(res));
     input.value = "";
+    for (const box of checked) box.checked = false;
   } catch (e) {
     $("upload-error").textContent = e.message;
   } finally {
     button.disabled = false;
     button.textContent = "Udostępnij";
+  }
+});
+
+$("roster-form").addEventListener("submit", async ev => {
+  ev.preventDefault();
+  $("roster-error").textContent = "";
+  $("roster-result").textContent = "";
+  const input = $("roster-input");
+  const form = new FormData();
+  form.append("file", input.files[0]);
+  try {
+    const res = await fetch("api/teacher/roster", { method: "POST", body: form });
+    if (res.status === 401) { await unauthorized(); return; }
+    if (!res.ok) throw new Error(await errorText(res));
+    const r = await res.json();
+    $("roster-result").textContent = `Wczytano: nowych uczniów ${r.added}, dopasowanych do już obecnych ${r.matched}.`;
+    input.value = "";
+  } catch (e) {
+    $("roster-error").textContent = e.message;
   }
 });
 

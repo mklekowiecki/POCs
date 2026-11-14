@@ -112,6 +112,19 @@ Testy: `dotnet test` w katalogu `TeacherHelp/`.
 - Pliki leżą w katalogu tymczasowym (`%TEMP%/TeacherHelp/files`) tylko na czas sesji – są kasowane
   po jej zakończeniu i przy starcie serwera.
 
+**Grupy A/B/C i lista klasy**
+- W trakcie sesji nauczyciel wczytuje listę klasy („Lista klasy i grupy”): CSV z dwiema kolumnami
+  `Dane ucznia;Kategoria` (nagłówek opcjonalny, separator `;`, `,` lub tabulator, kategoria A, B, C albo pusta).
+  „Dane ucznia” nie są dzielone na imię i nazwisko – uczeń widzi je na liście dokładnie tak jak w pliku.
+- Uczniowie już obecni na lekcji są dopasowani po słowach bez względu na kolejność i wielkość liter
+  („Kowalski Jan” = „jan kowalski”) i dostają grupę; pozostali są dopisani jako niepołączeni.
+  Od wczytania listy uczeń **tylko wybiera siebie z listy** – nie da się dopisać ręcznie (przed pomyłką chroni „Odłącz”).
+- Przy wysyłaniu pliku można zaznaczyć grupy (kilka naraz); bez zaznaczenia plik widzą wszyscy.
+  Uczeń widzi tylko pliki dla wszystkich i dla swojej grupy, a swojej grupy nie widzi wcale.
+- Pobranie pliku wymaga tokenu ucznia i sprawdza grupę – link przesłany koledze z innej grupy nie zadziała
+  (zalogowany nauczyciel pobiera wszystko). Grupę ucznia można zmienić w tabeli (kolumna „Grupa”).
+- „Eksport CSV” dodaje wtedy kolumnę `Kategoria`; wznowienie z takiego pliku przywraca grupy i tryb listy.
+
 **Uczeń**
 - Przed rozpoczęciem sesji widzi ekran „Poczekaj, aż nauczyciel rozpocznie lekcję”; strona sama się przełącza.
 - Wchodząc, wpisuje imię i nazwisko (osobne pola, każde do 40 znaków). Imię i nazwisko są unikalne w sesji

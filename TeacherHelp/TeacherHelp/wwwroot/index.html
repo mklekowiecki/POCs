@@ -24,10 +24,12 @@
     <section id="login" class="center hidden">
       <div class="card login-card">
         <div id="reconnect" class="reconnect hidden">
-          <h2>Wracasz na lekcję? Wybierz siebie</h2>
+          <h2 id="reconnect-title">Wracasz na lekcję? Wybierz siebie</h2>
+          <p id="roster-empty" class="muted hidden">Wszyscy z listy są już połączeni. Jeśli nie ma Cię na liście – zgłoś się do nauczyciela.</p>
           <div id="reconnect-list" class="choices"></div>
           <div id="reconnect-error" class="error"></div>
         </div>
+        <div id="join">
         <h2 id="join-title">Podaj imię i nazwisko</h2>
         <p id="join-hint" class="muted hidden">Nie ma Cię na liście? Wpisz imię i nazwisko i dołącz jako nowy uczeń.</p>
         <form id="login-form" class="login-form">
@@ -36,6 +38,7 @@
           <button type="submit">Dołącz</button>
         </form>
         <div id="login-error" class="error"></div>
+        </div>
       </div>
     </section>
 
