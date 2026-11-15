@@ -1,4 +1,0 @@
-<Solution>
-  <Project Path="TeacherHelp.Tests/TeacherHelp.Tests.csproj" />
-  <Project Path="TeacherHelp/TeacherHelp.csproj" />
-</Solution>
