@@ -303,6 +303,6 @@ else
   BASE="http://${IP:-<adres-serwera>}$([[ "$PORT" == 80 ]] || echo ":$PORT")"
 fi
 echo
-echo "Gotowe. Panel nauczyciela: ${BASE}/nauczyciel"
+echo "Gotowe. Panel nauczyciela: ${BASE}/"
 echo "Logi:    journalctl -u ${NAME} -f"
 echo "Restart: systemctl restart ${NAME}   (kasuje bieżącą lekcję)"

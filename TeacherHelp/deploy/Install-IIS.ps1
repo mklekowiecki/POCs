@@ -228,7 +228,7 @@ catch {
 
 Write-Host ""
 Write-Host "Gotowe!" -ForegroundColor Green
-Write-Host "  Panel nauczyciela: http://localhost$suffix/nauczyciel"
+Write-Host "  Panel nauczyciela: http://localhost$suffix/"
 foreach ($ip in Get-LanAddresses) {
-    Write-Host "  Uczniowie:         http://$ip$suffix/  (lekcja: /lekcja, ankieta: /ankieta, obwód: /obwod)"
+    Write-Host "  Uczniowie:         http://$ip$suffix/lekcja  (ankieta: /ankieta, obwód: /obwod, budżet: /budzet)"
 }

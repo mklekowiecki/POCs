@@ -20,8 +20,8 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
     ContentRootPath = AppContext.BaseDirectory,
 });
 
-// Wszystkie aplikacje na jednym porcie, domyślnie 80 na wszystkich interfejsach – uczniowie wpisują sam adres
-// komputera (podstrony: /ankieta, /obwod, /budzet, /wyscig). Inny port: "Urls" w appsettings.json albo --urls; pod IIS – powiązanie witryny.
+// Wszystkie aplikacje na jednym porcie, domyślnie 80 na wszystkich interfejsach – strona główna to panel
+// nauczyciela, uczniowie wpisują adres komputera z podstroną (/lekcja, /ankieta, /obwod, /budzet, /wyscig). Inny port: "Urls" w appsettings.json albo --urls; pod IIS – powiązanie witryny.
 if (string.IsNullOrWhiteSpace(builder.Configuration[WebHostDefaults.ServerUrlsKey]))
     builder.WebHost.UseUrls("http://0.0.0.0:80");
 
@@ -76,10 +76,12 @@ if (teacherPassword.Length == 0)
     app.Logger.LogWarning("Brak hasła nauczyciela (TeacherHelp:TeacherPassword) - logowanie do panelu będzie niemożliwe.");
 
 // Wszystko na jednym porcie; krótkie adresy do przepisania z tablicy prowadzą do stron w wwwroot.
+// Strona główna „/” to panel nauczyciela („/nauczyciel” zostaje dla starych zakładek).
 // „/ankieta/” przekierowujemy na „/ankieta” – strony używają ścieżek względnych (style.css, hubs/...).
 var pages = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
 {
-    ["/lekcja"] = "/index.html",
+    ["/"] = "/teacher.html",
+    ["/lekcja"] = "/lekcja.html",
     ["/ankieta"] = "/survey.html",
     ["/obwod"] = "/obwod.html",
     ["/budzet"] = "/budzet.html",
@@ -98,7 +100,6 @@ app.Use((ctx, next) =>
     if (pages.TryGetValue(path, out var page)) ctx.Request.Path = page;
     return next();
 });
-app.UseDefaultFiles();
 app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();

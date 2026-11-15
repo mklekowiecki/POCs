@@ -125,6 +125,15 @@
         </div>
       </div>
       <aside class="race-side">
+        <!-- Przyciski nauczyciela u góry, kostka w prawym dolnym rogu – najbliżej ucznia przy tablicy. -->
+        <div class="race-side-actions">
+          <button id="btn-save" type="button" class="secondary">💾 Zapisz do pliku</button>
+          <button id="btn-end" type="button" class="danger">Zakończ grę</button>
+        </div>
+        <div class="race-panel">
+          <h3 class="race-h3">Wyniki</h3>
+          <ol id="scores" class="race-scores"></ol>
+        </div>
         <div id="turn-card" class="race-panel race-turn">
           <div class="race-eyebrow">Teraz gra</div>
           <div id="turn-name" class="race-turn-name"></div>
@@ -133,14 +142,6 @@
             <button id="btn-roll" type="button" class="race-cta">Rzuć <kbd>spacja</kbd></button>
           </div>
           <div id="message" class="race-msg" aria-live="polite"></div>
-        </div>
-        <div class="race-panel">
-          <h3 class="race-h3">Wyniki</h3>
-          <ol id="scores" class="race-scores"></ol>
-        </div>
-        <div class="race-side-actions">
-          <button id="btn-save" type="button" class="secondary">💾 Zapisz do pliku</button>
-          <button id="btn-end" type="button" class="danger">Zakończ grę</button>
         </div>
       </aside>
     </section>

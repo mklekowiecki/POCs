@@ -15,19 +15,20 @@ dotnet run
 ```
 
 Serwer nasłuchuje na `http://0.0.0.0:80` (wszystkie interfejsy, port 80) – wszystkie aplikacje są
-podstronami tego samego adresu, więc uczniowie wpisują sam adres komputera nauczyciela.
+podstronami tego samego adresu. Strona główna to panel nauczyciela, uczniowie wpisują adres komputera
+nauczyciela z podstroną (np. `/lekcja`).
 
 | Kto                         | Adres                                        |
 |-----------------------------|----------------------------------------------|
-| Nauczyciel (cały panel)     | `http://localhost/nauczyciel`                |
-| Uczniowie – lekcja          | `http://<IP-komputera-nauczyciela>/`         |
+| Nauczyciel (cały panel)     | `http://localhost/`                          |
+| Uczniowie – lekcja (zadania) | `http://<IP-komputera-nauczyciela>/lekcja`  |
 | Uczniowie – ankieta         | `http://<IP-komputera-nauczyciela>/ankieta`  |
 | Uczniowie – symulator       | `http://<IP-komputera-nauczyciela>/obwod`    |
 | Uczniowie – budżet domowy   | `http://<IP-komputera-nauczyciela>/budzet`   |
 | Gra „Wyścig do 60” (projektor) | `http://localhost/wyscig`                |
 
 Panel nauczyciela sam pokazuje adresy dla uczniów (z adresami kart sieciowych komputera) przy każdej aplikacji.
-Strony ucznia i nauczyciela są podpisane „Lekcja Informatyki” (nagłówki i tytuły kart w `wwwroot/index.html` i `wwwroot/teacher.html`).
+Strony ucznia i nauczyciela są podpisane „Lekcja Informatyki” (nagłówki i tytuły kart w `wwwroot/lekcja.html` i `wwwroot/teacher.html`).
 Inny port: `"Urls": "http://0.0.0.0:5000"` w `appsettings.json` albo `dotnet run -- --urls http://0.0.0.0:5000`
 (np. gdy port 80 zajmuje już IIS lub inny serwer – wtedy aplikacja nie wystartuje z błędem „address already in use”).
 Uwaga: `dotnet run` bierze adres z profilu w `launchSettings.json` (`applicationUrl`), jeśli go masz –
@@ -176,7 +177,7 @@ Testy: `dotnet test` w katalogu `TeacherHelp/`.
 - Wyniki trzymane tylko w pamięci serwera; trwałość = ręczny eksport do pliku, bez historii ankiet.
 
 **Panel nauczyciela**
-- Jedna strona (`/nauczyciel`, plik `teacher.html`): wspólne logowanie hasłem, potem wybór aplikacji kafelkami
+- Jedna strona (strona główna `/`, plik `teacher.html`; `/nauczyciel` też działa): wspólne logowanie hasłem, potem wybór aplikacji kafelkami
   (Lekcja, Co kumam?, Obwód elektryczny, Budżet domowy, Wyścig do 60). Kafelki pokazują na żywo stan aplikacji (np. „Sesja trwa · uczniów: 12”,
   „Otwarta · odpowiedzi: 8”), bo po zalogowaniu panel jest połączony ze wszystkimi hubami naraz.
 - Aplikacja jest wybierana adresem (`#lekcja`, `#ankieta`, `#obwod`, `#budzet`, `#wyscig`) – działa „Wstecz” i odświeżenie strony.
@@ -248,7 +249,8 @@ Testy: `dotnet test` w katalogu `TeacherHelp/`.
 - HTTP bez TLS: hasło nauczyciela idzie po sieci lokalnej otwartym tekstem (HTTPS tylko przy instalacji
   na Linuksie z `--domain`).
 - Brak trwałego zapisu i historii sesji (poza ręcznym eksportem i wznowieniem z CSV).
-- Pobieranie plików nie wymaga logowania ucznia – wystarczy znać link (losowy identyfikator), dopóki trwa sesja.
+- Pobieranie plików wymaga tokenu ucznia z tej sesji (link zawiera token, więc działa, dopóki uczeń jest połączony
+  albo ktoś nie wybierze go z listy); plik grupy A/B/C pobierze tylko uczeń tej grupy.
 - Ankieta: „jedna odpowiedź na przeglądarkę” opiera się na identyfikatorze w `localStorage` – wyczyszczenie danych
   przeglądarki albo okno prywatne pozwala odpowiedzieć ponownie. Imię w ankiecie imiennej nie jest weryfikowane.
 
@@ -267,7 +269,7 @@ Testy: `dotnet test` w katalogu `TeacherHelp/`.
   Strona ucznia: `wwwroot/survey.html`.
 - Gra „Budżet domowy”: `Session/BudgetService.cs` (losowanie i wydarzenia, pokryta testami) i `Hubs/BudgetHubs.cs`
   (`/hubs/budget`: `GetView(browserId)`, `Join`, `Claim` (powrót do gry); `/hubs/budget-teacher`). Strony: `budzet.html`, `teacher-budget.js`.
-- Jeden port; krótkie adresy `/ankieta`, `/obwod`, `/budzet`, `/wyscig`, `/nauczyciel` są przepisywane na pliki z `wwwroot` (`Program.cs`),
+- Jeden port; `/` (panel nauczyciela) i krótkie adresy `/lekcja`, `/ankieta`, `/obwod`, `/budzet`, `/wyscig`, `/nauczyciel` są przepisywane na pliki z `wwwroot` (`Program.cs`),
   a `/ankieta/` przekierowuje na `/ankieta` (strony używają ścieżek względnych).
 - Panel nauczyciela: `wwwroot/teacher.html` + moduły ES: `teacher.js` (logowanie, kafelki, przełączanie),
   `teacher-lesson.js`, `teacher-survey.js` (po jednym na aplikację), `teacher-common.js` (API, huby, status połączenia).
@@ -288,9 +290,11 @@ Testy: `dotnet test` w katalogu `TeacherHelp/`.
 | PUT    | `/api/teacher/tasks/{n}` `{title?}` | zmień tytuł |
 | POST   | `/api/teacher/students/{id}/disconnect` | odłącz ucznia (postęp zostaje) |
 | DELETE | `/api/teacher/students/{id}` | usuń ucznia |
+| PUT    | `/api/teacher/students/{id}/category` `{category}` | grupa ucznia (A/B/C, `null` = bez grupy) |
+| POST   | `/api/teacher/roster` (multipart: `file`) | lista klasy z grupami (CSV `Dane ucznia;Kategoria`) |
 | GET    | `/api/teacher/addresses` | adresy tego komputera w sieci (dla uczniów); `TeacherHelp:PublicUrl`, jeśli ustawiony |
 | GET    | `/api/teacher/export.csv` | eksport wyników |
-| POST   | `/api/teacher/files` (multipart: `files`, `task?`) | udostępnij pliki (bez `task` = materiały ogólne) |
+| POST   | `/api/teacher/files` (multipart: `files`, `task?`, `categories*`) | udostępnij pliki (bez `task` = materiały ogólne, bez `categories` = wszyscy) |
 | DELETE | `/api/teacher/files/{id}` | usuń plik |
 | POST   | `/api/teacher/survey/start` `{questions[], named}` | nowa ankieta (zastępuje poprzednią) |
 | POST   | `/api/teacher/survey/close` | zamknij ankietę |
@@ -303,4 +307,5 @@ Testy: `dotnet test` w katalogu `TeacherHelp/`.
 | POST   | `/api/teacher/budget/import` (multipart: `file`) | wznowienie gry z CSV |
 | DELETE | `/api/teacher/budget/players/{id}` | usuń gracza |
 
-Uczniowie pobierają pliki przez `GET /api/files/{id}` (tylko w trakcie sesji).
+Uczniowie pobierają pliki przez `GET /api/files/{id}?token=…` (tylko w trakcie sesji i tylko pliki swojej grupy);
+zalogowany nauczyciel pobiera każdy plik bez tokenu.

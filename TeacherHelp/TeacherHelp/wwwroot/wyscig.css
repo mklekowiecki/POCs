@@ -351,7 +351,14 @@
 .race-mini.finish { background: repeating-conic-gradient(#141a2e 0 25%, #fff 0 50%) 0 0 / 12px 12px; }
 
 /* ---------- Panel boczny ---------- */
-.race-side { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 76px; }
+/* Kolumna sięga do dołu ekranu, a karta z kostką siedzi na jej dole – w prawym dolnym rogu, gdzie uczeń przy
+   tablicy najłatwiej sięga. Gdy wyników jest dużo, przewija się sama lista, a kostka zostaje na miejscu. */
+.race-side {
+  display: flex; flex-direction: column; gap: 16px; position: sticky; top: 76px;
+  height: calc(100vh - 96px); height: calc(100dvh - 96px); min-height: 520px;
+}
+.race-side > .race-panel:not(.race-turn) { min-height: 0; overflow: auto; }
+.race-side > .race-turn { margin-top: auto; flex: none; }
 .race-turn { text-align: center; border-top: 6px solid var(--c, var(--accent)); transition: border-color .35s; }
 .race-turn-name {
   margin: 2px 0 16px; font-size: 1.9rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.15;
@@ -587,7 +594,7 @@
 /* ---------- Mniejsze ekrany ---------- */
 @media (max-width: 1000px) {
   .race-game { grid-template-columns: 1fr; }
-  .race-side { position: static; order: -1; display: grid; grid-template-columns: 1fr 1fr; align-items: start; }
+  .race-side { position: static; height: auto; min-height: 0; order: -1; display: grid; grid-template-columns: 1fr 1fr; align-items: start; }
   .race-side-actions { grid-column: 1 / -1; }
 }
 @media (max-width: 640px) {
